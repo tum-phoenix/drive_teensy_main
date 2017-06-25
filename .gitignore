@@ -1,9 +1,12 @@
 # for projects that use SCons for building: http://http://www.scons.org/
 .sconsign.dblite
 
-# others
+
+
+
+# platformio
 .pioenvs
 .piolibdeps
 .clang_complete
 .gcc-flags.json
-
+lib/readme.txt
