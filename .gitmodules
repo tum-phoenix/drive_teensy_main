@@ -1,0 +1,3 @@
+[submodule "lib/drive_teensy_libuavcan"]
+	path = lib/drive_teensy_libuavcan
+	url = https://github.com/tum-phoenix/drive_teensy_libuavcan
