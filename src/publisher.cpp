@@ -14,23 +14,23 @@ Publisher<protocol::debug::LogMessage> *logPublisher;
 ISystemClock& getSystemClock()
 {
   Serial.println("SystemClock get");
-    return uavcan_nxpk20::SystemClock::instance();
+  return uavcan_nxpk20::SystemClock::instance();
 }
 
 ICanDriver& getCanDriver()
 {
-    Serial.println("CanDriver get");
-    static bool initialized = false;
-    if (!initialized)
-    {
-        initialized = true;
-        int res = uavcan_nxpk20::CanDriver::instance().init(bitrate);
-        if (res < 0)
-        {
-            Serial.println("Error on CanDriver initialization");
-        }
-    }
-    return uavcan_nxpk20::CanDriver::instance();
+  Serial.println("CanDriver get");
+  static bool initialized = false;
+  if (!initialized)
+  {
+      initialized = true;
+      int res = uavcan_nxpk20::CanDriver::instance().init(bitrate);
+      if (res < 0)
+      {
+          Serial.println("Error on CanDriver initialization");
+      }
+  }
+  return uavcan_nxpk20::CanDriver::instance();
 }
 
 
@@ -52,7 +52,7 @@ void setup()
 
   // Create a node
   node = new Node<NodeMemoryPoolSize>(getCanDriver(), getSystemClock());
-  Serial.println("Node created");
+  Serial.println("Application node created");
   // Create a publisher for LogMessages
   logPublisher = new Publisher<protocol::debug::LogMessage>(*node);
 
@@ -75,7 +75,7 @@ void setup()
 void loop()
 {
   // Wait for frames 100ms, then do other stuff
-  Serial.print(".");
+  Serial.println("Application spinning");
   const int res = node->spin(uavcan::MonotonicDuration::fromMSec(1000));
   if (res < 0)
   {
