@@ -10,5 +10,4 @@ is on branch `teensy-driver` and updated to have the latest implementation of li
 
 ## Build
 
-In PlatformIO just hit the build button and magic happens. Currently only tested
-in Win10.
+In PlatformIO just hit the build button and magic happens....
