@@ -5,7 +5,7 @@ using namespace uavcan;
 
 static const unsigned NodeMemoryPoolSize = 8192;
 static constexpr uint32_t bitrate = 1000000;
-static constexpr uint32_t nodeID = 100;
+static constexpr uint32_t nodeID = 101;
 
 Node<NodeMemoryPoolSize> *node;
 Publisher<protocol::debug::LogMessage> *logPublisher;
