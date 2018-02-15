@@ -95,15 +95,15 @@ void loop()
       Serial.println("Error while spinning...");
   }
 
-  protocol::debug::LogMessage msg;
-  const int pres = logPublisher->broadcast(msg);
-  if (pres < 0)
+
   // send a very important log message to everyone
   {
     Serial.println("Error while broadcasting message");
     protocol::debug::LogMessage msg;
 
-    msg.text = "TUM PHOENIX Robotics if(winCaroloCup){is awesome}else{sucks}!";
+    msg.level.value = protocol::debug::LogLevel::DEBUG;
+    msg.text = "TUM PHOENIX Robotics is cool";
+    msg.source = "Teensy";
 
     Serial.println("Start Broadcasting");
     const int pres = logPublisher->broadcast(msg);
