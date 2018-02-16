@@ -1,43 +1,21 @@
-#include <UAVCAN.hpp>
+#include "Arduino.h"
+#include "teensy_uavcan.hpp"
 #include <uavcan/protocol/param_server.hpp>
 
-using namespace uavcan;
+// Node settings
+static constexpr uint32_t nodeID = 102;
+static constexpr uint8_t swVersion = 1;
+static constexpr uint8_t hwVersion = 1;
+static const char* nodeName = "org.phoenix.configuration";
+
+// application settings
+static constexpr float framerate = 100;
+
+// some counter
+int ct = 0;
 
 
-static const unsigned NodeMemoryPoolSize = 8192;
-static constexpr uint32_t bitrate = 1000000;
-static constexpr uint32_t nodeID = 100;
-
-Node<NodeMemoryPoolSize> *node;
-
-ISystemClock& getSystemClock()
-{
-    return uavcan_nxpk20::SystemClock::instance();
-}
-
-ICanDriver& getCanDriver()
-{
-    static bool initialized = false;
-    if (!initialized)
-    {
-        initialized = true;
-        int res = uavcan_nxpk20::CanDriver::instance().init(bitrate);
-        if (res < 0)
-        {
-            Serial.println("Error on CanDriver initialization");
-        }
-    }
-    return uavcan_nxpk20::CanDriver::instance();
-}
-
-void background_processing()
-{
-  ; // do nothing
-}
-
-/*
-* This would be our configuration storage.
-*/
+// some example configuration storage
 static struct Params
 {
    unsigned foo = 42;
@@ -45,6 +23,7 @@ static struct Params
    double baz = 1e-5;
    std::string booz = "Hello world!";
 } configuration;
+
 
 /*
  * Now, we need to define some glue logic between the server (below) and our configuration storage (above).
@@ -63,6 +42,8 @@ class : public uavcan::IParamManager
 
     void assignParamValue(const Name& name, const Value& value) override
     {
+        toggleTraffic();
+
         if (name == "foo")
         {
             /*
@@ -160,6 +141,8 @@ class : public uavcan::IParamManager
     void readParamDefaultMaxMin(const Name& name, Value& out_def,
                                 NumericValue& out_max, NumericValue& out_min) const override
     {
+
+
         if (name == "foo")
         {
             out_def.to<uavcan::protocol::param::Value::Tag::integer_value>() = Params().foo;
@@ -190,50 +173,29 @@ class : public uavcan::IParamManager
     }
 } param_manager;
 
-
-/*
- * Now, this node can be reconfigured via UAVCAN. Awesome.
- * Many embedded applications require a restart before the new configuration settings can
- * be applied, so it is highly recommended to also support the remote restart service.
- */
-class : public uavcan::IRestartRequestHandler
-{
-    bool handleRestartRequest(uavcan::NodeID request_source) override
-    {
-        Serial.println("Got a remote restart request!");
-        /*
-         * We won't really restart, so return 'false'.
-         * Returning 'true' would mean that we're going to restart for real.
-         * Note that it is recognized that some nodes may not be able to respond to the
-         * restart request (e.g. if they restart immediately from the service callback).
-         */
-        return false;
-    }
-} restart_request_handler;
-
-
 uavcan::ParamServer* server;
+
 
 void setup()
 {
   delay(3000);
   Serial.begin(9600);
-  node = new Node<NodeMemoryPoolSize>(getCanDriver(), getSystemClock());
-  Serial.println("Application node created");
+  Serial.println("Setup");
 
-  node->setNodeID(nodeID);
-  node->setName("org.phoenix.configuration");
+  // init heart beat LED
+  initHeartBeat();
 
+  // Create a node
+  systemClock = &getSystemClock();
+  canDriver = &getCanDriver();
+  node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
+  initNode(node, nodeID, nodeName, swVersion, hwVersion);
 
-  // Start Node and then the subscriber
-  if(node->start() < 0){
-    Serial.println("Unable to start node!");
-  }
-
+  // start up node
   node->setModeOperational();
 
+  // start parameter server
   node->setRestartRequestHandler(&restart_request_handler);
-
   server = new uavcan::ParamServer(*node);
   const int server_start_res = server->start(&param_manager);
   if (server_start_res < 0)
@@ -242,24 +204,20 @@ void setup()
   }else{
     Serial.println("Started Parameterserver successfully!");
   }
-
-
-
 }
-
-int ct = 0;
 
 void loop()
 {
-  // Wait for frames 100ms, then do other stuff
+  // wait in cycle
+  waitCycle(framerate);
+
+  // do some CAN stuff
+  canCycle(node);
+
+  // toggle heartbeat
+  toggleHeartBeat(2);
+
   Serial.print("Application spinning. Heartbeat counter: ");
   Serial.println(ct);
   ct++;
-  const int res = node->spin(uavcan::MonotonicDuration::fromMSec(1000));
-  if (res < 0)
-  {
-      Serial.println("Error while spinning...");
-  }
-  // do other stuff
-  background_processing();
 }
