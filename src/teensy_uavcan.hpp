@@ -113,7 +113,7 @@ void toggleTraffic()
 }
 
 // spin node
-void canCycle(Node<NodeMemoryPoolSize> *node)
+void cycleNode(Node<NodeMemoryPoolSize> *node)
 {
   const int res = node->spin(uavcan::MonotonicDuration::fromUSec(nodeSpinTimeUS));
   if (res < 0)
@@ -123,7 +123,7 @@ void canCycle(Node<NodeMemoryPoolSize> *node)
 }
 
 // wait in each cycle (given a framerate)
-void waitCycle(const float framerate)
+void cycleWait(const float framerate)
 {
   if(oldTime.isZero()){
     oldTime = systemClock->getMonotonic();
