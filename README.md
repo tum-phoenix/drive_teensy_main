@@ -1,8 +1,13 @@
 [![Build Status](https://travis-ci.org/tum-phoenix/drive_teensy_tester.svg?branch=master)](https://travis-ci.org/tum-phoenix/drive_teensy_tester)
-# drive_teensy_tester
-Test application for UAVCAN implementation for teensy consisting of a `publisher.cpp`
-and a `subscriber.cpp`, one for publishing LogMessages and the other one subscribed to
-them dumping stuff on Serial port.
+
+# Introduction
+
+Test application for UAVCAN implementation for teensy consisting of 
+* `main.cpp`: main file containing setup() and loop()
+* `teensy_uavcan.cpp`: some useful functions for the teensy in combination with uavcan
+* `parameter.hpp`: examples parameter server
+* `publisher.hpp`: example publisher
+* `subscriber.hpp`: example subscriber
 
 ## Install
 
