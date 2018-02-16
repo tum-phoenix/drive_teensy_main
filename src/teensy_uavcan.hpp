@@ -58,6 +58,23 @@ ICanDriver& getCanDriver()
   return uavcan_nxpk20::CanDriver::instance();
 }
 
+
+// restarts the teensy if restart request is being send
+#define RESTART_ADDR       0xE000ED0C
+#define READ_RESTART()     (*(volatile uint32_t *)RESTART_ADDR)
+#define WRITE_RESTART(val) ((*(volatile uint32_t *)RESTART_ADDR) = (val))
+
+class : public uavcan::IRestartRequestHandler
+{
+    bool handleRestartRequest(uavcan::NodeID request_source) override
+    {
+        Serial.println("Got a remote restart request!");
+        WRITE_RESTART(0x5FA0004);
+        return true;
+    }
+} restart_request_handler;
+
+
 // initialize heart beat
 bool initHeartBeat()
 {
@@ -83,6 +100,7 @@ bool initNode(Node<NodeMemoryPoolSize> *node, const uint32_t nodeID, const char*
   node->setName(nodeName);
   node->setSoftwareVersion(sw_ver);
   node->setHardwareVersion(hw_ver);
+  node->setRestartRequestHandler(&restart_request_handler);
 
   if(node->start() >= 0)
   {

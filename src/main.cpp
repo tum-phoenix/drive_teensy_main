@@ -2,6 +2,7 @@
 #include "teensy_uavcan.hpp"
 #include "publisher.hpp"
 #include "subscriber.hpp"
+#include "parameter.hpp"
 
 // Node settings
 static constexpr uint32_t nodeID = 101;
@@ -36,6 +37,9 @@ void setup()
 
   // start up node
   node->setModeOperational();
+
+  // init parameter
+  initParameter(node);
 }
 
 
