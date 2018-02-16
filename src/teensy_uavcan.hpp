@@ -24,10 +24,15 @@ Node<NodeMemoryPoolSize> *node;
 bool heartBeatLed = false;
 int heartBeatLedPin = 16;
 MonotonicTime lastBeat = MonotonicTime::fromMSec(0);
+int heartBeatFreq = 2;
 
 // traffic (or general purpose) LED
 int trafficLedPin = 17;
 bool trafficLed = false;
+
+// teensy LED
+int teensyLedPin = 13;
+bool teensyLed = false;
 
 // interfaces to systemclock and canDriver
 ISystemClock* systemClock;
@@ -76,9 +81,11 @@ class : public uavcan::IRestartRequestHandler
 
 
 // initialize heart beat
-bool initHeartBeat()
+bool initLeds()
 {
   pinMode(heartBeatLedPin, OUTPUT);
+  pinMode(trafficLedPin, OUTPUT);
+  pinMode(teensyLedPin, OUTPUT);
   return true;
 }
 
@@ -112,9 +119,9 @@ bool initNode(Node<NodeMemoryPoolSize> *node, const uint32_t nodeID, const char*
 }
 
 // toggle state of heartbeat led
-void toggleHeartBeat(const int heatBeatFreq)
+void toggleHeartBeat()
 {
-  if(lastBeat + MonotonicDuration::fromMSec(1000/(float)heatBeatFreq)
+  if(lastBeat + MonotonicDuration::fromMSec(1000/(float)heartBeatFreq)
       < systemClock->getMonotonic())
   {
     heartBeatLed = !heartBeatLed;
@@ -128,6 +135,13 @@ void toggleTraffic()
 {
   trafficLed = !trafficLed;
   digitalWrite(trafficLedPin, trafficLed);
+}
+
+// toggle state of teensy led
+void toogleTeensy()
+{
+  teensyLed = ! teensyLed;
+  digitalWrite(teensyLedPin, teensyLed);
 }
 
 // spin node

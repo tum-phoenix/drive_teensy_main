@@ -20,8 +20,8 @@ void setup()
   Serial.begin(9600);
   Serial.println("Setup");
 
-  // init heart beat LED
-  initHeartBeat();
+  // init LEDs
+  initLeds();
 
   // Create a node
   systemClock = &getSystemClock();
@@ -56,5 +56,5 @@ void loop()
   cyclePublisher();
 
   // toggle heartbeat
-  toggleHeartBeat(2);
+  toggleHeartBeat();
 }
