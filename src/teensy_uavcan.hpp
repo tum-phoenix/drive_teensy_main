@@ -22,18 +22,23 @@ static constexpr int nodeSpinTimeUS = 1000;       // spin in each cycle to fetch
 Node<NodeMemoryPoolSize> *node;
 
 // heartbeat LED
-bool heartBeatLed = false;
-int heartBeatLedPin = 16;
+bool heartBeatLed = true;
+const int heartBeatLedPin = 16;
 MonotonicTime lastBeat = MonotonicTime::fromMSec(0);
-int heartBeatFreq = 2;
+float heartBeatFreq = 5;
 
 // traffic (or general purpose) LED
-int trafficLedPin = 17;
+const int trafficLedPin = 17;
 bool trafficLed = false;
 
 // teensy LED
-int teensyLedPin = 13;
-bool teensyLed = false;
+const int teensyLedPin = 13;
+bool teensyLed = true;
+
+// RGB LED
+const int rgbBLedPin = 21;
+const int rgbGLedPin = 22;
+const int rgbRLedPin = 23;
 
 // interfaces to systemclock and canDriver
 ISystemClock* systemClock;
@@ -84,9 +89,22 @@ class : public uavcan::IRestartRequestHandler
 // initialize heart beat
 bool initLeds()
 {
+  // set pin mode
+  pinMode(rgbBLedPin,      OUTPUT);
+  pinMode(rgbGLedPin,      OUTPUT);
+  pinMode(rgbRLedPin,      OUTPUT);
+  pinMode(trafficLedPin,   OUTPUT);
+  pinMode(teensyLedPin,    OUTPUT);
   pinMode(heartBeatLedPin, OUTPUT);
-  pinMode(trafficLedPin, OUTPUT);
-  pinMode(teensyLedPin, OUTPUT);
+
+  // write first output
+  digitalWrite(rgbBLedPin,      false);
+  digitalWrite(rgbGLedPin,      false);
+  digitalWrite(rgbRLedPin,      false);
+  digitalWrite(trafficLedPin,   trafficLed);
+  digitalWrite(teensyLedPin,    teensyLed);
+  digitalWrite(heartBeatLedPin, heartBeatLed);
+
   return true;
 }
 

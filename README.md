@@ -9,6 +9,11 @@ Test application for UAVCAN implementation for teensy consisting of
 * `publisher.hpp`: example publisher
 * `subscriber.hpp`: example subscriber
 
+The libuavcan library with teensy driver implementation can be found here: 
+https://github.com/tum-phoenix/drive_teensy_libuavcan/
+
+⚠⚠⚠ Please be aware that the teensy driver implementation is still work in progress! It is not finished and there are still some open issues: https://github.com/tum-phoenix/drive_teensy_libuavcan/issues
+
 ## Install
 
 Clone and run `git submodule update --init --remote`. Make sure `lib/libuavcan`
