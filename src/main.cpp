@@ -5,13 +5,13 @@
 #include "parameter.hpp"
 
 // Node settings
-static constexpr uint32_t nodeID = 101;
+static constexpr uint32_t nodeID = 102;
 static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
-static const char* nodeName = "org.phoenix.example_node";
+static const char* nodeName = "org.phoenix.example_node_2";
 
 // application settings
-static constexpr float framerate = 100;
+static constexpr float framerate = 1000;
 
 
 void setup()
@@ -35,11 +35,16 @@ void setup()
   // init subscriber
   initSubscriber(node);
 
+  // set up filters
+  configureCanAcceptanceFilters(*node);
+
   // start up node
   node->setModeOperational();
 
   // init parameter
   initParameter(node);
+
+  Serial.println("Setup Finished");
 }
 
 
@@ -53,8 +58,9 @@ void loop()
   cycleNode(node);
 
   // publish messages
-  cyclePublisher();
+  cyclePublisher(50);
 
   // toggle heartbeat
   toggleHeartBeat();
+  toogleTeensy();
 }

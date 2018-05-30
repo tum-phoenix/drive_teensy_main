@@ -2,6 +2,7 @@
 #define	TEENSY_UAVCAN_HPP
 
 #include <UAVCAN.hpp>
+#include <uavcan/transport/can_acceptance_filter_configurator.hpp>
 
 using namespace uavcan;
 
@@ -94,6 +95,7 @@ bool initNode(Node<NodeMemoryPoolSize> *node, const uint32_t nodeID, const char*
               const uint8_t swVersion, const uint8_t hwVersion)
 {
 
+
   protocol::SoftwareVersion sw_ver;
   sw_ver.major = swVersion;
   sw_ver.minor = 0;
@@ -108,7 +110,6 @@ bool initNode(Node<NodeMemoryPoolSize> *node, const uint32_t nodeID, const char*
   node->setSoftwareVersion(sw_ver);
   node->setHardwareVersion(hw_ver);
   node->setRestartRequestHandler(&restart_request_handler);
-
   if(node->start() >= 0)
   {
     Serial.println("Application node created");
