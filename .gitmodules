@@ -1,3 +1,9 @@
 [submodule "lib/drive_teensy_libuavcan"]
 	path = lib/libuavcan
 	url = https://github.com/tum-phoenix/drive_teensy_libuavcan
+[submodule "lib/drive_teensy_shield"]
+	path = lib/drive_teensy_shield
+	url = https://github.com/tum-phoenix/drive_teensy_shield
+[submodule "lib/drive_teensy_uavcan_msgs"]
+	path = lib/drive_teensy_uavcan_msgs
+	url = https://github.com/tum-phoenix/drive_teensy_uavcan_msgs

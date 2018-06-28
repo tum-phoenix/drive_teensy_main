@@ -1,14 +1,14 @@
 #include "Arduino.h"
-#include "teensy_uavcan.hpp"
+#include "phoenix_can_shield.h"
 #include "publisher.hpp"
 #include "subscriber.hpp"
 #include "parameter.hpp"
 
 // Node settings
-static constexpr uint32_t nodeID = 102;
+static constexpr uint32_t nodeID = 100;
 static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
-static const char* nodeName = "org.phoenix.example_node_2";
+static const char* nodeName = "org.phoenix.example_node";
 
 // application settings
 static constexpr float framerate = 1000;
@@ -62,5 +62,4 @@ void loop()
 
   // toggle heartbeat
   toggleHeartBeat();
-  toogleTeensy();
 }
