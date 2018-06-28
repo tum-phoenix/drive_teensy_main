@@ -3,6 +3,7 @@
 
 #include <UAVCAN.hpp>
 #include <uavcan/protocol/debug/KeyValue.hpp>
+#include "phoenix_can_shield.h"
 
 using namespace uavcan;
 
@@ -31,8 +32,7 @@ MonotonicTime lastPub = MonotonicTime::fromMSec(0);
 void cyclePublisher(const int pubFreq)
 {
   // send everyone the truth
-  if(lastPub + MonotonicDuration::fromMSec(1000/(float)pubFreq)
-      < systemClock->getMonotonic())
+  if(lastPub + MonotonicDuration::fromMSec(1000/(float)pubFreq) < systemClock->getMonotonic())
   {
     {
       protocol::debug::KeyValue msg;

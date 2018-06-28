@@ -17,7 +17,7 @@ static constexpr float framerate = 1000;
 void setup()
 {
   delay(3000);
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("Setup");
 
   // init LEDs
@@ -35,7 +35,7 @@ void setup()
   // init subscriber
   initSubscriber(node);
 
-  // set up filters
+  // set up filters (should be after publisher & subscriber setup)
   configureCanAcceptanceFilters(*node);
 
   // start up node
