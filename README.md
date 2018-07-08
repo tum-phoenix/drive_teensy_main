@@ -19,9 +19,5 @@ https://github.com/tum-phoenix/drive_teensy_libuavcan/
 Sources are stored in `src/<environment>`. Add new environments in the `platformio.ini` file.
 To only build / upload one specific environment you can:
 * uncomment all other environments
-* use the command line like ([more info](http://docs.platformio.org/en/latest/userguide/cmd_run.html#cmdoption-platformio-run-e))
-* use `env_default` like ([more info](http://docs.platformio.org/en/latest/projectconf/section_platformio.html#projectconf-pio-env-default))
-
-
-## Build
-In PlatformIO just hit the build button and magic happens....
+* use the command line ([more info](http://docs.platformio.org/en/latest/userguide/cmd_run.html#cmdoption-platformio-run-e))
+* use `env_default` ([more info](http://docs.platformio.org/en/latest/projectconf/section_platformio.html#projectconf-pio-env-default))
