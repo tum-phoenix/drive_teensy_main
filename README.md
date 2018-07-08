@@ -1,7 +1,7 @@
-[![Build Status](https://travis-ci.org/tum-phoenix/drive_teensy_tester.svg?branch=master)](https://travis-ci.org/tum-phoenix/drive_teensy_tester)
+[![Build Status](https://travis-ci.org/tum-phoenix/drive_teensy_main.svg?branch=master)](https://travis-ci.org/tum-phoenix/drive_teensy_main)
 
 # Introduction
-TUM Phoenix main electronic firmware repository! Open this directory as project with [PlatformIO](https://platformio.org/).
+TUM Phoenix main electronic firmware repository! Open this directory as project with [PlatformIO](https://platformio.org/). It is structured in multiple [environments](http://docs.platformio.org/en/latest/projectconf/section_env.html) for different devices.
 
 ## Libraries
 Environment specific libraries can be specified in `platformio.ini`.
