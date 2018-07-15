@@ -38,10 +38,10 @@ void cyclePublisher(const int pubFreq)
       protocol::debug::KeyValue msg;
 
       msg.value = counter++;
-      msg.key = "ct";
+      msg.key = "this is a longer message for testing with longer messages";
 
-      Serial.print("Trans: ");
-      Serial.println(msg.value);
+      //Serial.print("Trans: ");
+      //Serial.println(msg.value);
 
       const int pres = keyPublisher->broadcast(msg);
       if (pres < 0)

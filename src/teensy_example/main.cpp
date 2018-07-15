@@ -10,7 +10,8 @@ static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
 static const char* nodeName = "org.phoenix.example_node";
 
-// application settings
+
+// application framerate
 static constexpr float framerate = 1000;
 
 
@@ -24,8 +25,8 @@ void setup()
   initLeds();
 
   // Create a node
-  systemClock = &getSystemClock();
-  canDriver = &getCanDriver();
+  systemClock = &initSystemClock();
+  canDriver = &initCanDriver();
   node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
   initNode(node, nodeID, nodeName, swVersion, hwVersion);
 
