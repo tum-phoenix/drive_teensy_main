@@ -36,14 +36,14 @@ void setup()
   // init subscriber
   initSubscriber(node);
 
-  // set up filters (should be after publisher & subscriber setup)
+  // set up filters (must be after publisher & subscriber setup!)
   configureCanAcceptanceFilters(*node);
-
-  // start up node
-  node->setModeOperational();
 
   // init parameter
   initParameter(node);
+
+  // start up node
+  node->setModeOperational();
 
   Serial.println("Setup Finished");
 }
