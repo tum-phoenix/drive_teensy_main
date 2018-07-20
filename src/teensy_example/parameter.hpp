@@ -1,7 +1,7 @@
 #ifndef	PARAMETER_HPP
 #define	PARAMETER_HPP
 
-#include <UAVCAN.hpp>
+#include <uavcan/uavcan.hpp>
 #include <uavcan/protocol/param_server.hpp>
 
 using namespace uavcan;

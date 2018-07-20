@@ -1,7 +1,7 @@
 #ifndef	PUBLISHER_HPP
 #define	PUBLISHER_HPP
 
-#include <UAVCAN.hpp>
+#include <uavcan/uavcan.hpp>
 #include <uavcan/protocol/debug/KeyValue.hpp>
 #include "phoenix_can_shield.h"
 
