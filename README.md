@@ -6,6 +6,13 @@ TUM Phoenix main electronic firmware repository! Open this directory as project 
 ## Libraries
 Environment specific libraries can be specified in `platformio.ini`.
 
+## UAVCAN GUI Tool
+An easy to use debug tool is available: https://uavcan.org/GUI_Tool/Overview/ .
+Custom message types must be present in a special folder ([more Info](https://uavcan.org/Implementations/Pyuavcan/Tutorials/2._Basic_usage/#using-vendor-specific-dsdl-definitions)). The easiest way to keep these up to date is to create a symlink. Under Linux systems do:
+
+    mkdir ~/uavcan_vendor_specific_types
+    ln -s drive_teensy_main/lib/phoenix_msgs ~/uavcan_vendor_specific_types/
+
 ## Sources
 Sources are stored in `src/<environment>`. Add new environments in the `platformio.ini` file.
 To only build / upload one specific environment you can:
