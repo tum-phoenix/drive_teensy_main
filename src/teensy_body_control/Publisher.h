@@ -2,7 +2,7 @@
 #define	PUBLISHER_H
 
 #include <uavcan/uavcan.hpp>
-#include "phoenix_msgs/IMU.hpp"
+#include "phoenix_msgs/ImuData.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -18,13 +18,13 @@ typedef struct {
 } imu_t;
 
 // publisher
-Publisher<IMU> *imuPublisher;
+Publisher<ImuData> *imuPublisher;
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
   // create publishers
-  imuPublisher = new Publisher<IMU>(*node);
+  imuPublisher = new Publisher<ImuData>(*node);
 
   // initiliaze publishers
   if(imuPublisher->init() < 0)
@@ -39,7 +39,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
 // cycle all publisher
 void cyclePublisher(imu_t bno_data)
 {
-  IMU msg;
+  ImuData msg;
 
   msg.timestamp = systemClock->getUtc();
 
