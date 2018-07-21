@@ -3,18 +3,32 @@
 
 #include <uavcan/uavcan.hpp>
 #include <uavcan/protocol/param_server.hpp>
+#include <EEPROM.h>
 
 using namespace uavcan;
 
+static constexpr uint8_t param_start_addr = 0;
 
-// some example configuration storage
+
+// parameter storage with default values
 static struct Params
 {
    unsigned foo = 42;
    float bar = 0.123456F;
    double baz = 1e-5;
-   std::string booz = "Hello world!";
 } configuration;
+
+// save parameter struct in non-volatile EEPROM
+void writeParamsToEEPROM()
+{
+    EEPROM.put(param_start_addr, configuration);
+}
+
+// read parameter from non-volatile EEPROM
+void readParamsFromEEPROM()
+{
+    EEPROM.get(param_start_addr, configuration);
+}
 
 
 /*
@@ -29,7 +43,6 @@ class : public uavcan::IParamManager
         if (index == 0) { out_name = "foo"; }
         if (index == 1) { out_name = "bar"; }
         if (index == 2) { out_name = "baz"; }
-        if (index == 3) { out_name = "booz"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
@@ -71,18 +84,6 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.baz);
             }
         }
-        else if (name == "booz")
-        {
-            /*
-             * Parameter "booz" is a string, so we take only strings.
-             */
-            if (value.is(uavcan::protocol::param::Value::Tag::string_value))
-            {
-                configuration.booz = value.as<uavcan::protocol::param::Value::Tag::string_value>()->c_str();
-                Serial.print("Changed booz to: ");
-                Serial.println(configuration.booz.c_str());
-            }
-        }
         else
         {
             Serial.println("Can't assign parameter!");
@@ -105,17 +106,14 @@ class : public uavcan::IParamManager
         }
         else if (name == "booz")
         {
-            out_value.to<uavcan::protocol::param::Value::Tag::string_value>() = configuration.booz.c_str();
-        }
-        else
-        {
             Serial.println("Can't read parameter: ");
         }
     }
 
     int saveAllParams() override
     {
-        Serial.println("Save - this implementation does not require any action");
+        Serial.println("Save - all Params");
+        writeParamsToEEPROM();
         return 0;     // Zero means that everything is fine.
     }
 
@@ -152,11 +150,6 @@ class : public uavcan::IParamManager
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
         }
-        else if (name == "booz")
-        {
-            out_def.to<uavcan::protocol::param::Value::Tag::string_value>() = Params().booz.c_str();
-            Serial.println("Limits for 'booz' are not defined");
-        }
         else
         {
             Serial.println("Can't read the limits for parameter: ");
@@ -170,11 +163,12 @@ uavcan::ParamServer* server;
 
 void initParameter(Node<NodeMemoryPoolSize> *node)
 {
+  readParamsFromEEPROM();
   server = new uavcan::ParamServer(*node);
   const int server_start_res = server->start(&param_manager);
   if (server_start_res < 0)
   {
-     Serial.println("Failed to start ParamServer!");
+    Serial.println("Failed to start ParamServer!");
   }else{
     Serial.println("Started Parameterserver successfully!");
   }

@@ -29,7 +29,7 @@ uavcan_nxpk20::IfaceParams iface_param[] = {
       .rx_buff_size=50,               // RX ring buffer size
       .use_alt_tx_pin = false,        // use alternative TX pin
       .use_alt_rx_pin = false,        // use alternative RX pin
-      .dis_all_RX_by_default = true   // disables all RX mailboxes and only allows receiving of can messages configured via configureCanAcceptanceFilters()
+      .dis_all_RX_by_default = false  // disables all RX mailboxes and only allows receiving of can messages configured via configureCanAcceptanceFilters()
     }
   };
 
