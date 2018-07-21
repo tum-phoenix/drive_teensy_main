@@ -2,13 +2,14 @@
 #define	PUBLISHER_H
 
 #include <uavcan/uavcan.hpp>
-#include "uavcan/equipment/ahrs/RawIMU.hpp"
+#include "phoenix_msgs/IMU.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
 #include <utility/imumaths.h>
 
 using namespace uavcan;
+using namespace phoenix_msgs;
 
 typedef struct {
   imu::Vector<3> lin_acc;
@@ -17,13 +18,13 @@ typedef struct {
 } imu_t;
 
 // publisher
-Publisher<equipment::ahrs::RawIMU> *imuPublisher;
+Publisher<IMU> *imuPublisher;
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
   // create publishers
-  imuPublisher = new Publisher<equipment::ahrs::RawIMU>(*node);
+  imuPublisher = new Publisher<IMU>(*node);
 
   // initiliaze publishers
   if(imuPublisher->init() < 0)
@@ -38,9 +39,27 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
 // cycle all publisher
 void cyclePublisher(imu_t bno_data)
 {
+  IMU msg;
 
-  // turn off traffic led pin
-  digitalWrite(trafficLedPin, LOW);
+  msg.timestamp = systemClock->getUtc();
+
+  msg.accelerometer[0] = bno_data.lin_acc[0];
+  msg.accelerometer[1] = bno_data.lin_acc[1];
+  msg.accelerometer[2] = bno_data.lin_acc[3];
+
+  msg.rate_gyro[0] = bno_data.gyro[0];
+  msg.rate_gyro[1] = bno_data.gyro[1];
+  msg.rate_gyro[2] = bno_data.gyro[2];
+
+  msg.euler[0] = bno_data.euler[0];
+  msg.euler[1] = bno_data.euler[1];
+  msg.euler[2] = bno_data.euler[2];
+
+  if (imuPublisher->broadcast(msg) < 0)
+  {
+    Serial.println("Error while broadcasting key message");
+  }
+
 }
 
 

@@ -1,0 +1,33 @@
+# Simpler Raw IMU data with timestamps.
+#
+# Data acquisition timestamp in the bus shared time base.
+#
+uavcan.Timestamp timestamp
+
+#
+# Angular velocity samples in radian/second.
+# The samples are represented in the body frame, the axes are ordered as follows:
+#   1. angular velocity around X (roll rate)
+#   2. angular velocity around Y (pitch rate)
+#   3. angular velocity around Z (yaw rate)
+#
+float16[3] rate_gyro               # Latest sample, radian/second
+
+
+#
+# Linear acceleration samples in meter/(second^2).
+# The samples are represented in the body frame, the axes are ordered as follows:
+#   1. linear acceleration along X (forward positive)
+#   2. linear acceleration along Y (right positive)
+#   3. linear acceleration along Z (down positive)
+#
+float16[3] accelerometer            # Latest sample, meter/(second^2)
+
+#
+# Angular samples in degrees.
+# The samples are represented in the body frame, the axes are ordered as follows:
+#   1. angle around X (roll)
+#   2. angle around Y (pitch)
+#   3. angle around Z (yaw)
+#
+float16[3] euler                   # Latest sample, degrees

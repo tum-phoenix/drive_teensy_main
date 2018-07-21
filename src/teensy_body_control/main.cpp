@@ -10,7 +10,7 @@
 static constexpr uint32_t nodeID = 102;
 static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
-static const char* nodeName = "org.phoenix.dji";
+static const char* nodeName = "org.phoenix.body_control";
 
 // application settings
 static constexpr float framerate = 100;
@@ -56,16 +56,16 @@ void loop() {
   cycleNode(node);
 
   // BNO055 data aquisition
-    // Possible vector values can be:
-    // - VECTOR_ACCELEROMETER - m/s^2
-    // - VECTOR_MAGNETOMETER  - uT
-    // - VECTOR_GYROSCOPE     - rad/s
-    // - VECTOR_EULER         - degrees
-    // - VECTOR_LINEARACCEL   - m/s^2
-    // - VECTOR_GRAVITY       - m/s^2
-    bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
-    bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
-    bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
+  // Possible vector values can be:
+  // - VECTOR_ACCELEROMETER - m/s^2
+  // - VECTOR_MAGNETOMETER  - uT
+  // - VECTOR_GYROSCOPE     - rad/s
+  // - VECTOR_EULER         - degrees
+  // - VECTOR_LINEARACCEL   - m/s^2
+  // - VECTOR_GRAVITY       - m/s^2
+  bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+  bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
 
 
   // cycle publisher
