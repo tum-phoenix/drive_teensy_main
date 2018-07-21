@@ -125,7 +125,9 @@ bool initLeds()
 bool initNode(Node<NodeMemoryPoolSize> *node, const uint32_t nodeID, const char* nodeName,
               const uint8_t swVersion, const uint8_t hwVersion)
 {
-
+  // adjust UTC
+  uavcan::UtcDuration adjustment;
+  systemClock->adjustUtc(adjustment.fromMSec(0)); // no adjustment for now
 
   protocol::SoftwareVersion sw_ver;
   sw_ver.major = swVersion;
