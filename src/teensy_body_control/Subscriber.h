@@ -15,8 +15,7 @@ void remote_control_callback(const RemoteControl& msg)
 {
   // TODO
 
-  VescUartSetDuty(msg.velocity);
-
+  RC_coms.thr = msg.velocity;
   // validate if motors are ready for these commands:
   // if(msg.velocity < 10 && msg.velocity > -10)
   // {

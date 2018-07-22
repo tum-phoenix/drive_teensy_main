@@ -4,6 +4,7 @@
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/ImuData.hpp"
 #include "phoenix_msgs/MotorState.hpp"
+#include "phoenix_msgs/ActorCommands.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -22,10 +23,8 @@ typedef struct {
 // publisher
 Publisher<ImuData> *imuPublisher;
 Publisher<MotorState> *motorStatePublisher;
+Publisher<ActorCommands> *actorCommandsPublisher;
 
-// Vesc
-int motor_state_update_rate = 10; // Hz
-MonotonicTime last_motor_state_update = MonotonicTime::fromMSec(0);
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
@@ -33,6 +32,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   // create publishers
   imuPublisher = new Publisher<ImuData>(*node);
   motorStatePublisher = new Publisher<MotorState>(*node);
+  actorCommandsPublisher = new Publisher<ActorCommands>(*node);
 
   // initiliaze publishers
   if(imuPublisher->init() < 0)
@@ -45,12 +45,18 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
     Serial.println("Unable to initialize motorStatePublisher!");
   }
 
+  if(actorCommandsPublisher->init() < 0)
+    {
+      Serial.println("Unable to initialize motorStatePublisher!");
+    }
   // set TX timeout
   imuPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  motorStatePublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  actorCommandsPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
-// cycle all publisher
-void cyclePublisher(imu_t bno_data)
+// cycle BNO publisher
+void cyclePublisherBNO(imu_t bno_data)
 {
   ImuData msg;
 
@@ -72,51 +78,49 @@ void cyclePublisher(imu_t bno_data)
   {
     Serial.println("Error while broadcasting key message");
   }
+}
 
-  // motor state update -> at motor_state_update_rate -> check time first
-  if(last_motor_state_update +
-     MonotonicDuration::fromMSec(1000/(float)motor_state_update_rate) <
-     systemClock->getMonotonic())
+// cycle Motor publisher
+void cyclePublisher_Mot_State(bldcMeasure data, uint8_t motor_position)
+{
+  MotorState msg;
+  msg.position =      motor_position; // MotorState::POS_FRONT_RIGHT;
+  msg.temp_fet =      data.tempFetFiltered;
+  msg.motor_current = data.avgMotorCurrent;
+  msg.input_current = data.avgInputCurrent;
+  msg.input_voltage = data.inpVoltage;
+  msg.rpm =           data.rpm / 7; // RPM = ERPM / 7
+  msg.fault_code =    data.faultCode;
+
+  //SerialPrint(measuredVal_motor1);
+
+  if (motorStatePublisher->broadcast(msg) < 0)
   {
-
-    // it is time for an update of motor states
-    last_motor_state_update = systemClock->getMonotonic();
-
-
-    // update motor 1 information
-    bldcMeasure measuredVal_motor1;
-    if (VescUartGetValue(measuredVal_motor1, 0)) {
-      MotorState msg;
-      msg.position =      MotorState::POS_FRONT_RIGHT;
-      msg.temp_fet =      measuredVal_motor1.tempFetFiltered;
-      msg.motor_current = measuredVal_motor1.avgMotorCurrent;
-      msg.input_current = measuredVal_motor1.avgInputCurrent;
-      msg.input_voltage = measuredVal_motor1.inpVoltage;
-      msg.rpm =           measuredVal_motor1.rpm / 7; // RPM = ERPM / 7
-      msg.fault_code =    measuredVal_motor1.faultCode;
-
-      //SerialPrint(measuredVal_motor1);
-
-      if (motorStatePublisher->broadcast(msg) < 0)
-      {
-        Serial.println("Error while broadcasting motor 1 state");
-      } else {
-        digitalWrite(trafficLedPin, HIGH);
-      }
-    }
-    else
-    {
-      Serial.print("FAILED to get motor 1 data! ReadError: ");
-      Serial.print(Serial1.getReadError());
-      Serial.print(" WriteError: ");
-      Serial.println(Serial1.getWriteError());
-      // Serial1.end();
-      // Serial1.clear();
-      // Serial1.flush();
-      // Serial1.begin(115200);
-    }
+    Serial.print("Error while broadcasting motor state ");
+    Serial.println(motor_position);
+  } else {
+    digitalWrite(trafficLedPin, HIGH);
   }
 }
 
+void cyclePublisher_Actor_Comms(actor_comm_t data)
+{
+  ActorCommands msg;
+  msg.motor_current1 = data.motor_amps[0];
+  msg.motor_current2 = data.motor_amps[1];
+  msg.motor_current3 = data.motor_amps[2];
+  msg.motor_current4 = data.motor_amps[3];
+  
+  msg.servo_angle1 = data.servo_angles[0];
+  msg.servo_angle2 = data.servo_angles[1];
+  msg.servo_angle3 = data.servo_angles[2];
+  msg.servo_angle4 = data.servo_angles[3];
 
+  if (actorCommandsPublisher->broadcast(msg) < 0)
+  {
+    Serial.println("Error while broadcasting motor commads");
+  } else {
+    digitalWrite(trafficLedPin, HIGH);
+  }
+}
 #endif
