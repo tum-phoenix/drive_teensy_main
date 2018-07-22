@@ -19,12 +19,12 @@ static const char* nodeName = "org.phoenix.dji";
 static constexpr float framerate = 100;
 
 // DJI
-int rc_update_rate = 10;
+int rc_update_rate = 100;
 MonotonicTime last_rc_update = MonotonicTime::fromMSec(0);
 DJI dji(Serial1);
 
 // Vesc
-int motor_state_update_rate = 10;
+int motor_state_update_rate = 1;
 MonotonicTime last_motor_state_update = MonotonicTime::fromMSec(0);
 struct bldcMeasure measuredVal_motor0;
 struct bldcMeasure measuredVal_motor1;

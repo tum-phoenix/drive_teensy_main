@@ -5,6 +5,7 @@
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
 #include <utility/imumaths.h>
+#include <VescUart.h>
 
 // CAN Node settings
 static constexpr uint32_t nodeID = 102;
@@ -19,6 +20,12 @@ Adafruit_BNO055 bno055 = Adafruit_BNO055();
 
 void setup() {
   Serial.begin(115200);
+
+  // setup UART port for vesc
+  Serial1.begin(115200);
+  SetSerialPort(&Serial1);
+  //SetDebugSerialPort(&Serial);
+  
 
   // init LEDs
   initLeds();

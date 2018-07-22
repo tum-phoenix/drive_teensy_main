@@ -5,4 +5,4 @@ uint16 servo_rear_right         # servo signal [1000:2000]
 float16 current_front_left      # motor_current
 float16 current_front_right     # motor_current
 float16 current_rear_left       # motor_current
-float16 current_rear_right # motor_current
+float16 current_rear_right      # motor_current

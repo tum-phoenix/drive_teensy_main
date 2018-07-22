@@ -3,14 +3,27 @@
 
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/RemoteControl.hpp"
+#include <VescUart.h>
 
 using namespace uavcan;
 using namespace phoenix_msgs;
 
-Subscriber<RemoteControl> *motorSubscriber;
+Subscriber<RemoteControl> *remote_control_Subscriber;
 
-void motorMessageCallback(const RemoteControl& msg)
+
+void remote_control_callback(const RemoteControl& msg)
 {
+  // TODO
+
+  VescUartSetDuty(msg.velocity);
+
+  // validate if motors are ready for these commands:
+  // if(msg.velocity < 10 && msg.velocity > -10)
+  // {
+  //   VescUartSetCurrent((float)msg.velocity * 10, 0);
+  //   Serial.print("Vel Set: ");
+  //   Serial.println((float)msg.velocity * 10);
+  // }
   
 }
 
@@ -18,9 +31,9 @@ void motorMessageCallback(const RemoteControl& msg)
 void initSubscriber(Node<NodeMemoryPoolSize> *node)
 {
   // create a subscriber
-  motorSubscriber = new Subscriber<RemoteControl>(*node);
+  remote_control_Subscriber = new Subscriber<RemoteControl>(*node);
 
-  if(motorSubscriber->start(motorMessageCallback) < 0)
+  if(remote_control_Subscriber->start(remote_control_callback) < 0)
   {
     Serial.println("Unable to start subscriber!");
   }
