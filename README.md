@@ -13,6 +13,12 @@ Custom message types must be present in a special folder ([more Info](https://ua
     mkdir ~/uavcan_vendor_specific_types
     ln -s drive_teensy_main/lib/phoenix_msgs ~/uavcan_vendor_specific_types/
 
+Under Windows create folder
+
+    C:/Users/[username]/uavcan_vendor_specific_types/phoenix_msgs
+
+place custom *.uavcan files there.
+
 ## Sources
 Sources are stored in `src/<environment>`. Add new environments in the `platformio.ini` file.
 To only build / upload one specific environment you can:
