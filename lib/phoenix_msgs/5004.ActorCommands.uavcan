@@ -1,9 +1,0 @@
-float16 motor_current1
-float16 motor_current2
-float16 motor_current3
-float16 motor_current4
-
-float16 servo_angle1
-float16 servo_angle2
-float16 servo_angle3
-float16 servo_angle4

@@ -33,7 +33,7 @@ drive_comm_t RC_coms;
 // Vesc
 static struct actor_comm_t{
   float motor_amps[4] = {0,0,0,0};
-  float servo_angles[4] = {90,90,90,90};
+  uint16_t servo_angles[4] = {90,90,90,90};
 } actor_comms;
 
 bldcMeasure measuredVal_motor1;
@@ -79,6 +79,9 @@ void setup() {
   // set up filters
   configureCanAcceptanceFilters(*node);
 
+  // init parameter
+  initParameter(node);
+
   // start up node
   node->setModeOperational();
 
@@ -97,9 +100,9 @@ void loop() {
   cycleNode(node);
 
   // update motor front left information
-  if (!VescUartGetValue(measuredVal_motor1, 0)) Serial.println("failed to get motor data front left!");
+  //if (!VescUartGetValue(measuredVal_motor1, 0)) Serial.println("failed to get motor data front left!");
   // update motor front right information
-  if (!VescUartGetValue(measuredVal_motor2, 1)) Serial.println("failed to get motor data front right!");
+  //if (!VescUartGetValue(measuredVal_motor2, 1)) Serial.println("failed to get motor data front right!");
 
   // BNO055 data aquisition
   // Possible vector values can be:
@@ -111,7 +114,7 @@ void loop() {
   // - VECTOR_GRAVITY       - m/s^2
   bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
-  //bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
+  bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
 
   // main driving dynamics calculations
   dynamics_control();
@@ -121,7 +124,7 @@ void loop() {
   cyclePublisher_Mot_State(measuredVal_motor1, FRONT_LEFT);
   cyclePublisher_Mot_State(measuredVal_motor2, FRONT_RIGHT);
   cyclePublisher_Actor_Comms(actor_comms);
-  
+
   // set the connected Motors 
   VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT],0);
   VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT],1);

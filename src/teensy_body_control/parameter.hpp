@@ -39,14 +39,14 @@ class : public uavcan::IParamManager
     void getParamNameByIndex(Index index, Name& out_name) const override
     {
 
-        if (index == 0) { out_name = "maxSpeed"; }
-        if (index == 1) { out_name = "maxMotorAmps"; }
+        if (index == 0) { out_name = "maxSpeed[m/s]"; }
+        if (index == 1) { out_name = "maxMotorCurrent[A]"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
     {
 
-        if (name == "maxSpeed")
+        if (name == "maxSpeed[m/s]")
         {
             /*
              * Parameter "foo" is an integer, so we accept only integer values here.
@@ -54,11 +54,11 @@ class : public uavcan::IParamManager
             if (value.is(uavcan::protocol::param::Value::Tag::integer_value))
             {
                 configuration.maxSpeed = *value.as<uavcan::protocol::param::Value::Tag::integer_value>();
-                Serial.print("Changed maxSpeed to: ");
+                Serial.print("Changed maxSpeed[m/s] to: ");
                 Serial.println(configuration.maxSpeed);
             }
         }
-        else if (name == "maxMotorAmps")
+        else if (name == "maxMotorCurrent[A]")
         {
             /*
              * Parameter "bar" is a floating point, so we accept only float values here.
@@ -66,7 +66,7 @@ class : public uavcan::IParamManager
             if (value.is(uavcan::protocol::param::Value::Tag::real_value))
             {
                 configuration.maxMotorAmps = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Changed maxMotorAmps to: ");
+                Serial.print("Changed maxMotorCurrent[A] to: ");
                 Serial.println(configuration.maxMotorAmps);
             }
         }
@@ -78,11 +78,11 @@ class : public uavcan::IParamManager
 
     void readParamValue(const Name& name, Value& out_value) const override
     {
-        if (name == "maxSpeed")
+        if (name == "maxSpeed[m/s]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::integer_value>() = configuration.maxSpeed;
         }
-        else if (name == "maxMotorAmps")
+        else if (name == "maxMotorCurrent[A]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxMotorAmps;
         }
@@ -114,13 +114,13 @@ class : public uavcan::IParamManager
     {
 
 
-        if (name == "maxSpeed")
+        if (name == "maxSpeed[m/s]")
         {
             out_def.to<uavcan::protocol::param::Value::Tag::integer_value>() = Params().maxSpeed;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = 15;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = 1;
         }
-        else if (name == "maxMotorAmps")
+        else if (name == "maxMotorCurrent[A]")
         {
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxMotorAmps;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 20;

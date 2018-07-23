@@ -16,6 +16,6 @@ Custom message types must be present in a special folder ([more Info](https://ua
 ## Sources
 Sources are stored in `src/<environment>`. Add new environments in the `platformio.ini` file.
 To only build / upload one specific environment you can:
+* recommended: use the command line ([more info](http://docs.platformio.org/en/latest/userguide/cmd_run.html#cmdoption-platformio-run-e)) `pio run -t upload -e <env>`
 * uncomment all other environments
-* use the command line ([more info](http://docs.platformio.org/en/latest/userguide/cmd_run.html#cmdoption-platformio-run-e))
 * use `env_default` ([more info](http://docs.platformio.org/en/latest/projectconf/section_platformio.html#projectconf-pio-env-default))

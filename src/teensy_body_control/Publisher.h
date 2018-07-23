@@ -4,7 +4,7 @@
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/ImuData.hpp"
 #include "phoenix_msgs/MotorState.hpp"
-#include "phoenix_msgs/ActorCommands.hpp"
+#include "phoenix_msgs/MotorTarget.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -23,7 +23,7 @@ typedef struct {
 // publisher
 Publisher<ImuData> *imuPublisher;
 Publisher<MotorState> *motorStatePublisher;
-Publisher<ActorCommands> *actorCommandsPublisher;
+Publisher<MotorTarget> *motorTargetPublisher;
 
 
 // initialize all publisher
@@ -32,7 +32,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   // create publishers
   imuPublisher = new Publisher<ImuData>(*node);
   motorStatePublisher = new Publisher<MotorState>(*node);
-  actorCommandsPublisher = new Publisher<ActorCommands>(*node);
+  motorTargetPublisher = new Publisher<MotorTarget>(*node);
 
   // initiliaze publishers
   if(imuPublisher->init() < 0)
@@ -45,14 +45,14 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
     Serial.println("Unable to initialize motorStatePublisher!");
   }
 
-  if(actorCommandsPublisher->init() < 0)
+  if(motorTargetPublisher->init() < 0)
     {
       Serial.println("Unable to initialize motorStatePublisher!");
     }
   // set TX timeout
   imuPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorStatePublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
-  actorCommandsPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  motorTargetPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
 // cycle BNO publisher
@@ -105,18 +105,18 @@ void cyclePublisher_Mot_State(bldcMeasure data, uint8_t motor_position)
 
 void cyclePublisher_Actor_Comms(actor_comm_t data)
 {
-  ActorCommands msg;
-  msg.motor_current1 = data.motor_amps[0];
-  msg.motor_current2 = data.motor_amps[1];
-  msg.motor_current3 = data.motor_amps[2];
-  msg.motor_current4 = data.motor_amps[3];
+  MotorTarget msg;
+  msg.current_front_left = data.motor_amps[FRONT_LEFT];
+  msg.current_front_right = data.motor_amps[FRONT_RIGHT];
+  msg.current_rear_left = data.motor_amps[REAR_LEFT];
+  msg.current_rear_right = data.motor_amps[REAR_RIGHT];
   
-  msg.servo_angle1 = data.servo_angles[0];
-  msg.servo_angle2 = data.servo_angles[1];
-  msg.servo_angle3 = data.servo_angles[2];
-  msg.servo_angle4 = data.servo_angles[3];
+  msg.servo_front_left = data.servo_angles[FRONT_LEFT];
+  msg.servo_front_right = data.servo_angles[FRONT_RIGHT];
+  msg.servo_rear_left = data.servo_angles[REAR_LEFT];
+  msg.servo_rear_right = data.servo_angles[REAR_RIGHT];
 
-  if (actorCommandsPublisher->broadcast(msg) < 0)
+  if (motorTargetPublisher->broadcast(msg) < 0)
   {
     Serial.println("Error while broadcasting motor commads");
   } else {
