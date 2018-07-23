@@ -18,3 +18,4 @@ lib/readme.txt
 .vscode/launch.json
 
 lib/libuavcan/message_header/*
+lib/libuavcan/
