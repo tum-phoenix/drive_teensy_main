@@ -5,6 +5,7 @@
 #include <utility/imumaths.h>
 #include <VescUart.h>
 #include "parameter.hpp"
+#include <math.h>
 
 // CAN Node settings
 static constexpr uint32_t nodeID = 102;
@@ -16,12 +17,10 @@ static const char* nodeName = "org.phoenix.body_control";
 static constexpr float framerate = 100;
 
 // Driving dynamics
-enum WHEEL_POS{
-  FRONT_LEFT,
-  FRONT_RIGHT,
-  REAR_LEFT,
-  REAR_RIGHT,
-};
+#define FRONT_LEFT MotorState::POS_FRONT_LEFT
+#define FRONT_RIGHT MotorState::POS_FRONT_RIGHT
+#define REAR_LEFT MotorState::POS_REAR_LEFT
+#define REAR_RIGHT MotorState::POS_REAR_RIGHT
 
 typedef struct {
   float thr;
@@ -100,9 +99,9 @@ void loop() {
   cycleNode(node);
 
   // update motor front left information
-  //if (!VescUartGetValue(measuredVal_motor1, 0)) Serial.println("failed to get motor data front left!");
+  if (!VescUartGetValue(measuredVal_motor1, 0)) Serial.println("failed to get motor data front left!");
   // update motor front right information
-  //if (!VescUartGetValue(measuredVal_motor2, 1)) Serial.println("failed to get motor data front right!");
+  if (!VescUartGetValue(measuredVal_motor2, 1)) Serial.println("failed to get motor data front right!");
 
   // BNO055 data aquisition
   // Possible vector values can be:
@@ -138,7 +137,9 @@ void loop() {
 
 float v_veh()
 {
-  return (measuredVal_motor1.rpm + measuredVal_motor2.rpm)/14;
+  float mean_rounds = (measuredVal_motor1.rpm + measuredVal_motor2.rpm)/14; // RPM
+  mean_rounds /= 60; // RPS
+  return mean_rounds * 2 * M_PI * WHEEL_RADIUS_M; // m/s;
 }
 
 void dynamics_control() {
@@ -149,7 +150,7 @@ void dynamics_control() {
     setRGBled(0,255,0);
     // PID controller for RC mode
     static float main_amps;
-    static float P_, I_, d_, D_, PID, v_error;
+    static float P_, I_, d_, D_, speed_PID, v_error;
     uint32_t secs = micros()/1000000;
 
     P_ = configuration.speedKp ;
@@ -157,9 +158,9 @@ void dynamics_control() {
     d_ = 1 + ( configuration.filt_coeff / secs );
     D_ =  configuration.speedKd * configuration.filt_coeff / d_ ;
 
-    PID = P_ + I_ + D_;
+    speed_PID = P_ + I_ + D_;
     v_error = (RC_coms.thr*configuration.maxSpeed) - v_veh();
-    main_amps = v_error * PID;
+    main_amps = v_error * speed_PID;
     main_amps = constrain(main_amps, -configuration.maxMotorAmps, configuration.maxMotorAmps);
 
     actor_comms.motor_amps[FRONT_LEFT] = main_amps;
