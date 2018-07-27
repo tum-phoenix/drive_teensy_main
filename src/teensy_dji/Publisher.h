@@ -135,8 +135,8 @@ void cyclePublisher(DJI& dji)
       // left stick - up/down - target velocity
       msg.velocity = dji.leftVerticalStick();
 
-      Serial.print("Vel: ");
-      Serial.println((float)msg.velocity * 10);
+      //Serial.print("Vel: ");
+      //Serial.println((float)msg.velocity * 10);
 
       // left stick - left/right - steering rear
       msg.steer_rear = dji.leftHorizontalStick();
@@ -147,7 +147,7 @@ void cyclePublisher(DJI& dji)
       const int pres = rc_Publisher->broadcast(msg);
       if (pres < 0)
       {
-        Serial.println("Error while broadcasting rc message");
+      //  Serial.println("Error while broadcasting rc message");
       } else {
         digitalWrite(trafficLedPin, HIGH);
       }
