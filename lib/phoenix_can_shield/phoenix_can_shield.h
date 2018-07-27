@@ -211,4 +211,11 @@ void cycleWait(const float framerate)
   oldTime = systemClock->getMonotonic();
 }
 
+void setRGBled(uint8_t r, uint8_t g, uint8_t b)
+{
+  analogWrite(rgbRLedPin, 0xff-r);
+  analogWrite(rgbGLedPin, 0xff-g);
+  analogWrite(rgbBLedPin, 0xff-b);
+
+}
 #endif
