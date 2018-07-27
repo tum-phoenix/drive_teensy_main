@@ -62,9 +62,9 @@ void cyclePublisherBNO(imu_t bno_data)
 
   msg.timestamp = systemClock->getUtc();
 
-  msg.accelerometer[0] = bno_data.lin_acc[0];
-  msg.accelerometer[1] = bno_data.lin_acc[1];
-  msg.accelerometer[2] = bno_data.lin_acc[3];
+  msg.lin_acceleration[0] = bno_data.lin_acc[0];
+  msg.lin_acceleration[1] = bno_data.lin_acc[1];
+  msg.lin_acceleration[2] = bno_data.lin_acc[3];
 
   msg.rate_gyro[0] = bno_data.gyro[0];
   msg.rate_gyro[1] = bno_data.gyro[1];

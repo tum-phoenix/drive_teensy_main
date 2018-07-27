@@ -115,7 +115,7 @@ void loop() {
   bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
   bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
   bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
-
+  
   // main driving dynamics calculations
   dynamics_control();
 

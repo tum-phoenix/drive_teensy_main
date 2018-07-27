@@ -20,8 +20,9 @@ float16[3] rate_gyro               # Latest sample, radian/second
 #   1. linear acceleration along X (forward positive)
 #   2. linear acceleration along Y (right positive)
 #   3. linear acceleration along Z (down positive)
-#
-float16[3] accelerometer            # Latest sample, meter/(second^2)
+# 
+# !Without gravity vector!
+float16[3] lin_acceleration            # Latest sample, meter/(second^2)
 
 #
 # Angular samples in degrees.
