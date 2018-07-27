@@ -16,13 +16,9 @@ void remote_control_callback(const RemoteControl& msg)
   // TODO
 
   RC_coms.thr = msg.velocity;
-  // validate if motors are ready for these commands:
-  // if(msg.velocity < 10 && msg.velocity > -10)
-  // {
-  //   VescUartSetCurrent((float)msg.velocity * 10, 0);
-  //   Serial.print("Vel Set: ");
-  //   Serial.println((float)msg.velocity * 10);
-  // }
+  RC_coms.steer_f = msg.steer_front;
+  RC_coms.steer_r = msg.steer_rear;
+  RC_coms.drive_state = msg.drive_mode;
   
 }
 

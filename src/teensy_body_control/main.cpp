@@ -134,16 +134,46 @@ void loop() {
   toggleHeartBeat();
 }
 
+#define WHEEL_RADIUS_M 0.033
+
+float v_veh()
+{
+  return (measuredVal_motor1.rpm + measuredVal_motor2.rpm)/14;
+}
+
 void dynamics_control() {
   #define TICKS_P_DEG 6 // servo steps per actual degree
   // calculates currents and steering angles for each wheel
-  actor_comms.motor_amps[FRONT_LEFT] = RC_coms.thr*configuration.maxMotorAmps;
-  actor_comms.motor_amps[FRONT_RIGHT] = RC_coms.thr*configuration.maxMotorAmps;
-  actor_comms.motor_amps[REAR_LEFT] = RC_coms.thr*configuration.maxMotorAmps;
-  actor_comms.motor_amps[REAR_RIGHT] = RC_coms.thr*configuration.maxMotorAmps;
-  
-  actor_comms.servo_angles[FRONT_LEFT] = RC_coms.steer_f*TICKS_P_DEG;
-  actor_comms.servo_angles[FRONT_RIGHT] = RC_coms.steer_f*TICKS_P_DEG;
-  actor_comms.servo_angles[REAR_LEFT] = RC_coms.steer_r*TICKS_P_DEG;
-  actor_comms.servo_angles[REAR_RIGHT] = RC_coms.steer_r*TICKS_P_DEG;
+
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL) {
+    setRGBled(0,255,0);
+    // PID controller for RC mode
+    static float main_amps;
+    static float P_, I_, d_, D_, PID, v_error;
+    uint32_t secs = micros()/1000000;
+
+    P_ = configuration.speedKp ;
+    I_ = configuration.speedKi / secs ;
+    d_ = 1 + ( configuration.filt_coeff / secs );
+    D_ =  configuration.speedKd * configuration.filt_coeff / d_ ;
+
+    PID = P_ + I_ + D_;
+    v_error = (RC_coms.thr*configuration.maxSpeed) - v_veh();
+    main_amps = v_error * PID;
+    main_amps = constrain(main_amps, -configuration.maxMotorAmps, configuration.maxMotorAmps);
+
+    actor_comms.motor_amps[FRONT_LEFT] = main_amps;
+    actor_comms.motor_amps[FRONT_RIGHT] = main_amps;
+    actor_comms.motor_amps[REAR_LEFT] = main_amps;
+    actor_comms.motor_amps[REAR_RIGHT] = main_amps;
+    
+    actor_comms.servo_angles[FRONT_LEFT] = RC_coms.steer_f*TICKS_P_DEG;
+    actor_comms.servo_angles[FRONT_RIGHT] = RC_coms.steer_f*TICKS_P_DEG;
+    actor_comms.servo_angles[REAR_LEFT] = RC_coms.steer_r*TICKS_P_DEG;
+    actor_comms.servo_angles[REAR_RIGHT] = RC_coms.steer_r*TICKS_P_DEG;
+  }
+  else {
+    Serial.println("non manual driving mode!!!!");
+    setRGBled(255,0,0);
+  }
 }
