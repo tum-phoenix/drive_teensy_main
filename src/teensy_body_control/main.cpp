@@ -55,8 +55,8 @@ void setup() {
 
   // setup UART port for vesc
   Serial1.begin(115200);
-  Serial2.begin(115200);
-  SetSerialPort(&Serial1, &Serial2, &Serial1, &Serial1);
+  Serial3.begin(115200);
+  SetSerialPort(&Serial1, &Serial3, &Serial1, &Serial1);
   //SetDebugSerialPort(&Serial);
   
 
@@ -91,17 +91,22 @@ void setup() {
 
 imu_t bno_data;
 
+uint32_t t_ = 0;
 void loop() {
   // wait in cycle
+  uint32_t t = micros();
+  Serial.print("CPU Load: ");
+  Serial.println((float)(t-t_)/100);
   cycleWait(framerate);
+  t_ = micros();
 
   // get RC data, high level commands, motor telemetry rear motors
   cycleNode(node);
 
   // update motor front left information
-  if (!VescUartGetValue(measuredVal_motor1, 0)) Serial.println("failed to get motor data front left!");
+  if (!VescUartGetValue(measuredVal_motor1, 0)); //Serial.println("failed to get motor data front left!");
   // update motor front right information
-  if (!VescUartGetValue(measuredVal_motor2, 1)) Serial.println("failed to get motor data front right!");
+  if (!VescUartGetValue(measuredVal_motor2, 1)); //Serial.println("failed to get motor data front right!");
 
   // BNO055 data aquisition
   // Possible vector values can be:
@@ -146,12 +151,10 @@ void dynamics_control() {
   #define TICKS_P_DEG 6 // servo steps per actual degree
   // calculates currents and steering angles for each wheel
 
-  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL) {
-    setRGBled(0,255,0);
     // PID controller for RC mode
     static float main_amps;
     static float P_, I_, d_, D_, speed_PID, v_error;
-    uint32_t secs = micros()/1000000;
+    float secs = micros()/1000000;
 
     P_ = configuration.speedKp ;
     I_ = configuration.speedKi / secs ;
@@ -172,9 +175,4 @@ void dynamics_control() {
     actor_comms.servo_angles[FRONT_RIGHT] = RC_coms.steer_f*TICKS_P_DEG;
     actor_comms.servo_angles[REAR_LEFT] = RC_coms.steer_r*TICKS_P_DEG;
     actor_comms.servo_angles[REAR_RIGHT] = RC_coms.steer_r*TICKS_P_DEG;
-  }
-  else {
-    Serial.println("non manual driving mode!!!!");
-    setRGBled(255,0,0);
-  }
 }
