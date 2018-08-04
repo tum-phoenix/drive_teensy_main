@@ -18,10 +18,6 @@ using namespace phoenix_msgs;
 Publisher<RemoteControl> *rc_Publisher;
 Publisher<MotorState> *motor_state_Publisher;
 
-// additional configuration
-static uint8_t motor0_position = MotorState::POS_FRONT_LEFT;
-static uint8_t motor1_position = MotorState::POS_FRONT_RIGHT;
-
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
