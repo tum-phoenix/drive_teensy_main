@@ -1,0 +1,6 @@
+float16 curr_Servo
+float16 curr_NUC
+float16 curr_JT
+float16 v_Servo
+float16 v_NUC
+float16 v_JT

@@ -107,7 +107,7 @@ bool initLeds()
   pinMode(rgbGLedPin,      OUTPUT);
   pinMode(rgbRLedPin,      OUTPUT);
   pinMode(trafficLedPin,   OUTPUT);
-  pinMode(teensyLedPin,    OUTPUT);
+  //pinMode(teensyLedPin,    OUTPUT);
   pinMode(heartBeatLedPin, OUTPUT);
 
   // write first output
@@ -115,7 +115,7 @@ bool initLeds()
   digitalWrite(rgbGLedPin,      false);
   digitalWrite(rgbRLedPin,      false);
   digitalWrite(trafficLedPin,   trafficLed);
-  digitalWrite(teensyLedPin,    teensyLed);
+  //digitalWrite(teensyLedPin,    teensyLed);
   digitalWrite(heartBeatLedPin, heartBeatLed);
 
   return true;
@@ -218,4 +218,14 @@ void setRGBled(uint8_t r, uint8_t g, uint8_t b)
   analogWrite(rgbBLedPin, 0xff-b);
 
 }
+
+// signum function since missing in math.h (!?)
+inline int sgn(double x)
+{
+    if (x==0)
+        return 0;
+    else
+        return (x>0) ? 1 : -1;
+}
+
 #endif
