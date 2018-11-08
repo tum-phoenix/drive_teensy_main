@@ -84,28 +84,6 @@ class : public uavcan::IRestartRequestHandler
 } restart_request_handler;
 
 
-// initialize heart beat
-bool initLeds()
-{
-  // set pin mode
-  pinMode(rgbBLedPin,      OUTPUT);
-  pinMode(rgbGLedPin,      OUTPUT);
-  pinMode(rgbRLedPin,      OUTPUT);
-  pinMode(trafficLedPin,   OUTPUT);
-  //pinMode(teensyLedPin,    OUTPUT);
-  pinMode(heartBeatLedPin, OUTPUT);
-
-  // write first output
-  digitalWrite(rgbBLedPin,      false);
-  digitalWrite(rgbGLedPin,      false);
-  digitalWrite(rgbRLedPin,      false);
-  digitalWrite(trafficLedPin,   trafficLed);
-  //digitalWrite(teensyLedPin,    teensyLed);
-  digitalWrite(heartBeatLedPin, heartBeatLed);
-
-  return true;
-}
-
 // initialize UAVCAN node
 bool initNode(Node<NodeMemoryPoolSize> *node, const uint32_t nodeID, const char* nodeName,
               const uint8_t swVersion, const uint8_t hwVersion)
@@ -173,6 +151,29 @@ bool teensyLed = true;
 const int rgbBLedPin = 21;
 const int rgbGLedPin = 22;
 const int rgbRLedPin = 23;
+
+
+// initialize all LEDs
+bool initLeds()
+{
+  // set pin mode
+  pinMode(rgbBLedPin,      OUTPUT);
+  pinMode(rgbGLedPin,      OUTPUT);
+  pinMode(rgbRLedPin,      OUTPUT);
+  pinMode(trafficLedPin,   OUTPUT);
+  pinMode(teensyLedPin,    OUTPUT);
+  pinMode(heartBeatLedPin, OUTPUT);
+
+  // write first output
+  digitalWrite(rgbBLedPin,      false);
+  digitalWrite(rgbGLedPin,      false);
+  digitalWrite(rgbRLedPin,      false);
+  digitalWrite(trafficLedPin,   trafficLed);
+  digitalWrite(teensyLedPin,    teensyLed);
+  digitalWrite(heartBeatLedPin, heartBeatLed);
+
+  return true;
+}
 
 // toggle simple led
 void toggleLED(const uint8_t pin, bool& status)

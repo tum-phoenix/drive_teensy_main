@@ -1,15 +1,16 @@
 # The build system in PlatformIO is based on SCon
 import os
 import subprocess
+import stat
 
 # create SCon environment
 env = Environment()
 
-# message header directory
-headerdir = "./message_header"
-
 # remember current working directory
 cwd = os.getcwd()
+
+# message header directory
+headerdir = os.path.join(cwd, 'message_header')
 
 # dsdl compiler
 dsdlc = os.path.join(cwd, 'libuavcan', 'libuavcan', 'dsdl_compiler', 'libuavcan_dsdlc')
@@ -22,7 +23,8 @@ print("Delete old message header *.hpp files.")
 for root, dirs, files in os.walk(headerdir, topdown=True):
     for name in files:
         if name.endswith(".hpp"):
-            os.remove(os.path.join(root, name))
+            os.chmod(os.path.join(root, name), stat.S_IWRITE) # remove read only attribute in Windows
+            os.remove(os.path.join(root, name))               # remove file
 
 
 # Collect all paths that contain .uavcan files
