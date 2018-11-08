@@ -1,0 +1,13 @@
+{
+    "name" : "phoenix_can_shield",
+    "version": "1.0",
+    "authors":
+    [
+        {
+          "name": "TUM Phoenix Robotics",
+          "url": "http://tum-phoenix.de"
+        }
+    ],
+    "platforms" : "teensy"
+  }
+  
