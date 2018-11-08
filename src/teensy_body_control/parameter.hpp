@@ -13,11 +13,10 @@ static constexpr uint8_t param_start_addr = 0;
 static struct Params
 {
    float maxSpeed = 5;
-   float maxMotorAmps = 10;
+   float maxMotorAmps = 5;
    float speedKp = 100;
-   float speedKi = 0.2;
-   float speedKd = 0.01;
-   uint8_t filt_coeff = 100;
+   float speedKi = 0.0;
+   float speedKd = 0.1;
 } configuration;
 
 // save parameter struct in non-volatile EEPROM
@@ -47,7 +46,6 @@ class : public uavcan::IParamManager
         if (index == 2) { out_name = "speedKp[-]"; }
         if (index == 3) { out_name = "speedKi[-]"; }
         if (index == 4) { out_name = "speedKd[-]"; }
-        if (index == 5) { out_name = "filtercoeff[-]"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
@@ -98,15 +96,6 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.speedKd);
             }
         }
-        else if (name == "filtercoeff[-]")
-        {
-            if (value.is(uavcan::protocol::param::Value::Tag::integer_value))
-            {
-                configuration.filt_coeff = *value.as<uavcan::protocol::param::Value::Tag::integer_value>();
-                Serial.print("Changed filtercoeff[-] to: ");
-                Serial.println(configuration.filt_coeff);
-            }
-        }
         else
         {
             Serial.println("Can't assign parameter!");
@@ -134,10 +123,6 @@ class : public uavcan::IParamManager
         else if (name == "speedKd[-]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.speedKd;
-        }
-        else if (name == "filtercoeff[-]")
-        {
-            out_value.to<uavcan::protocol::param::Value::Tag::integer_value>() = configuration.filt_coeff;
         }
         else
         {
@@ -182,7 +167,7 @@ class : public uavcan::IParamManager
         else if (name == "speedKp[-]")
         {
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().speedKp;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 200;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 500;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
         }
         else if (name == "speedKi[-]")
@@ -196,12 +181,6 @@ class : public uavcan::IParamManager
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().speedKd;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 10;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
-        }
-        else if (name == "filtercoeff[-]")
-        {
-            out_def.to<uavcan::protocol::param::Value::Tag::integer_value>() = Params().filt_coeff;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = 250;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::integer_value>() = 0;
         }
         else
         {

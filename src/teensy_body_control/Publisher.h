@@ -5,6 +5,7 @@
 #include "phoenix_msgs/ImuData.hpp"
 #include "phoenix_msgs/MotorState.hpp"
 #include "phoenix_msgs/MotorTarget.hpp"
+#include "phoenix_msgs/PowerState.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -24,17 +25,24 @@ typedef struct {
 Publisher<ImuData> *imuPublisher;
 Publisher<MotorState> *motorStatePublisher;
 Publisher<MotorTarget> *motorTargetPublisher;
+Publisher<PowerState> *power_Publisher;
 
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
   // create publishers
+  power_Publisher = new Publisher<PowerState>(*node);
   imuPublisher = new Publisher<ImuData>(*node);
   motorStatePublisher = new Publisher<MotorState>(*node);
   motorTargetPublisher = new Publisher<MotorTarget>(*node);
 
   // initiliaze publishers
+  if(power_Publisher->init() < 0)
+  {
+    Serial.println("Unable to initialize power_Publisher!");
+  }
+
   if(imuPublisher->init() < 0)
   {
     Serial.println("Unable to initialize imuPublisher!");
@@ -123,4 +131,37 @@ void cyclePublisher_Actor_Comms(actor_comm_t data)
     digitalWrite(trafficLedPin, HIGH);
   }
 }
+
+// cycle power publisher
+void cyclePublisher_Power()
+{
+  // Power
+  if(last_power_update +
+    MonotonicDuration::fromMSec(1000/(float)power_update_rate) <
+    systemClock->getMonotonic())
+  {
+    last_power_update = systemClock->getMonotonic();
+    float V4_raw = analogRead(CELL4_PIN);
+    float curr_raw = analogRead(CURR_PIN);
+    float V4 = V4_raw * Cell4_FACTOR;
+    float curr = curr_raw * CURR_FACTOR;
+
+    PowerState msg;
+    msg.id= nodeID;
+    msg.v1= 0;
+    msg.v2= 0;
+    msg.v3= 0;
+    msg.v4= 0;
+    msg.main_voltage = V4; 
+    msg.main_current = curr;
+    const int pres = power_Publisher->broadcast(msg);
+    if (pres < 0)
+    {
+      Serial.println("Error while broadcasting power state");
+    } else {
+      digitalWrite(trafficLedPin, HIGH);
+    }
+  }
+}
+
 #endif

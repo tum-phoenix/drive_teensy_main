@@ -1,0 +1,7 @@
+uint8 id
+float16 v1
+float16 v2
+float16 v3
+float16 v4
+float16 main_voltage
+float16 main_current

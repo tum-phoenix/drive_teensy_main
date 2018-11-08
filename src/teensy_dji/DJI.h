@@ -42,31 +42,47 @@ public:
   }
 
   // returns left vertical stick values between -1 and 1
-  float leftVerticalStick()
+  float leftVerticalStick(float last_value)
   {
     float helpVar=(float(channels[1])-1024)/660;
-    return helpVar;
+    if (abs(helpVar)<1.01) {
+      return helpVar;
+    } else {
+      return last_value;
+    }
   }
 
   // returns left horizontal stick values between -1 and 1
-  float leftHorizontalStick()
+  float leftHorizontalStick(float last_value)
   {
     float helpVar=(float(channels[3])-1024)/660;
-    return helpVar;
+    if (abs(helpVar)<1.01) {
+      return helpVar;
+    } else {
+      return last_value;
+    }
   }
 
   // returns right vertical stick values between -1 and 1
-  float rightVerticalStick()
+  float rightVerticalStick(float last_value)
   {
     float helpVar=(float(channels[2])-1024)/660;
-    return helpVar;
+    if (abs(helpVar)<1.01) {
+      return helpVar;
+    } else {
+      return last_value;
+    }
   }
 
   // returns right horizontal stick values between -1 and 1
-  float rightHorizontalStick()
+  float rightHorizontalStick(float last_value)
   {
     float helpVar=(float(channels[0])-1024)/660;
-    return helpVar;
+    if (abs(helpVar)<1.01) {
+      return helpVar;
+    } else {
+      return last_value;
+    }
   }
 
   // returns the right switch state
