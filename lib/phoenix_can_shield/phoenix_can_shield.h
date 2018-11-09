@@ -161,7 +161,7 @@ bool initLeds()
   pinMode(rgbGLedPin,      OUTPUT);
   pinMode(rgbRLedPin,      OUTPUT);
   pinMode(trafficLedPin,   OUTPUT);
-  pinMode(teensyLedPin,    OUTPUT);
+  //pinMode(teensyLedPin,    OUTPUT);
   pinMode(heartBeatLedPin, OUTPUT);
 
   // write first output
@@ -169,7 +169,7 @@ bool initLeds()
   digitalWrite(rgbGLedPin,      false);
   digitalWrite(rgbRLedPin,      false);
   digitalWrite(trafficLedPin,   trafficLed);
-  digitalWrite(teensyLedPin,    teensyLed);
+  //digitalWrite(teensyLedPin,    teensyLed);
   digitalWrite(heartBeatLedPin, heartBeatLed);
 
   return true;
