@@ -18,10 +18,10 @@ static const char* nodeName = "org.phoenix.body_control";
 static constexpr float framerate = 100;
 
 // Driving dynamics
-#define FRONT_LEFT  (MotorState::POS_FRONT_LEFT -1) 
-#define FRONT_RIGHT (MotorState::POS_FRONT_RIGHT -1)
-#define REAR_LEFT   (MotorState::POS_REAR_LEFT -1)
-#define REAR_RIGHT  (MotorState::POS_REAR_RIGHT -1)
+#define FRONT_LEFT  MotorState::POS_FRONT_LEFT 
+#define FRONT_RIGHT MotorState::POS_FRONT_RIGHT
+#define REAR_LEFT   MotorState::POS_REAR_LEFT
+#define REAR_RIGHT  MotorState::POS_REAR_RIGHT
 
 typedef struct {
   float thr = 0;
