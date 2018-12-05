@@ -33,7 +33,8 @@ drive_comm_t RC_coms;
 
 typedef struct {
   float lin_vel = 0;        // m/s
-  float ang_vel = 0;    // deg/s
+  float steer = 0;    // deg/s
+  bool steer_type = 0;
 } NUC_drive_coms_t;
 NUC_drive_coms_t NUC_drive_coms;
 
@@ -50,7 +51,7 @@ int power_update_rate = 5;
 MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CELL4_PIN A0
 #define CURR_PIN  A1
-#define Cell4_FACTOR 0.0211263/4 // 10k + 1k8 
+#define Cell4_FACTOR 0.0052815755 // 10k + 1k8 
 #define CURR_FACTOR 0.00161133/4 // 0R01 + 200V/V
 
 // BNO055 imu
@@ -61,11 +62,16 @@ PWMServo steering_servo[2];
 float steering_servo_position[2];
 float steering_servo_offset[2] = {98,92};
 uint8_t steering_servo_pin[2] = {9,10};
+#define MAX_STEER_ANGLE 32              // degrees
+#define MAX_STEER_SERVO_INNER 50
+#define MAX_STEER_SERVO_OUTER 30
 
 float calc_speed_pid();
 void dynamics_control();
 void vesc_command();
 uint8_t check_arm_state();
+void calc_steer(float*);
+void steer_angle_distribution(float*);
 
 #include "Publisher.h"
 #include "Subscriber.h"
@@ -135,14 +141,14 @@ void loop() {
     Serial.println("failed to get motor data front left!");
   }
   else {
-    cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT+1);
+    cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT);
   }
   // update motor front right information
   if (!VescUartGetValue(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT)) {
     Serial.println("failed to get motor data front right!");
   }
   else {
-    cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT+1);
+    cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT);
   }
 
   // BNO055 data aquisition
@@ -153,15 +159,15 @@ void loop() {
   // - VECTOR_EULER         - degrees
   // - VECTOR_LINEARACCEL   - m/s^2
   // - VECTOR_GRAVITY       - m/s^2
-  bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
-  bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
-  bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
+  //bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
+  //bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
+  //bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
   
   // main driving dynamics calculations
   dynamics_control();
 
   // cycle publisher
-  cyclePublisherBNO(bno_data);
+  //cyclePublisherBNO(bno_data);
   cyclePublisher_Actor_Comms(actor_comms);
 
   // set the connected Motors 
@@ -213,38 +219,24 @@ float a_wheel(uint8_t wheelindex) {
 }
 
 void dynamics_control() {
-  #define TICKS_P_DEG 6 // servo steps per actual degree
-  #define MAX_STEER_ANGLE_INNER 50
-  #define MAX_STEER_ANGLE_OUTER 30
 
   if (check_arm_state()) {
+    #define ACC_FACTOR 0.3
     float main_amps = calc_speed_pid();
-    actor_comms.motor_amps[FRONT_LEFT]  = main_amps;
-    actor_comms.motor_amps[FRONT_RIGHT] = main_amps;
-    actor_comms.motor_amps[REAR_LEFT]   = main_amps;
-    actor_comms.motor_amps[REAR_RIGHT]  = main_amps;
+    float steer[4];
+    calc_steer(steer);   // 4 elements
+    float tv_factor = configuration.tvFactor * constrain(RC_coms.steer_f+RC_coms.steer_r,-1,1);
+    float acc_factor = sgn(main_amps)*ACC_FACTOR;
+    actor_comms.motor_amps[FRONT_LEFT]  = main_amps * (1+tv_factor-acc_factor);
+    actor_comms.motor_amps[FRONT_RIGHT] = main_amps * (1-tv_factor-acc_factor);
+    actor_comms.motor_amps[REAR_LEFT]   = main_amps * (1+tv_factor+acc_factor);
+    actor_comms.motor_amps[REAR_RIGHT]  = main_amps * (1-tv_factor+acc_factor);
 
-    if (RC_coms.steer_f > 0) {
-      actor_comms.servo_angles[FRONT_LEFT] = -RC_coms.steer_f*MAX_STEER_ANGLE_OUTER;
-      actor_comms.servo_angles[FRONT_RIGHT] = -RC_coms.steer_f*MAX_STEER_ANGLE_INNER;
-    } else {
-      actor_comms.servo_angles[FRONT_LEFT] = -RC_coms.steer_f*MAX_STEER_ANGLE_INNER;
-      actor_comms.servo_angles[FRONT_RIGHT] = -RC_coms.steer_f*MAX_STEER_ANGLE_OUTER; 
-    }
-    if (RC_coms.steer_r > 0) {
-      actor_comms.servo_angles[REAR_LEFT] = RC_coms.steer_r*MAX_STEER_ANGLE_OUTER;
-      actor_comms.servo_angles[REAR_RIGHT] = RC_coms.steer_r*MAX_STEER_ANGLE_INNER;
-    } else {
-      actor_comms.servo_angles[REAR_LEFT] = RC_coms.steer_r*MAX_STEER_ANGLE_INNER;
-      actor_comms.servo_angles[REAR_RIGHT] = RC_coms.steer_r*MAX_STEER_ANGLE_OUTER;
-    }
-    //Serial.print(actor_comms.servo_angles[0]);
-    //Serial.print("\t");
-    //Serial.print(actor_comms.servo_angles[1]);
-    //Serial.print("\t");
-    //Serial.print(actor_comms.servo_angles[2]);
-    //Serial.print("\t");
-    //Serial.println(actor_comms.servo_angles[3]);
+    actor_comms.servo_angles[FRONT_LEFT] = steer[FRONT_LEFT];
+    actor_comms.servo_angles[FRONT_RIGHT] = steer[FRONT_RIGHT];
+    actor_comms.servo_angles[REAR_LEFT] = steer[REAR_LEFT];
+    actor_comms.servo_angles[REAR_RIGHT] = steer[REAR_RIGHT];
+    
   } else {
     actor_comms.motor_amps[FRONT_LEFT] = 0;
     actor_comms.motor_amps[FRONT_RIGHT] = 0;
@@ -273,8 +265,7 @@ void traction_control() {
 }
 
 uint8_t check_arm_state() {
-  if (  RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL 
-     || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS
      || RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS) {
     if (!steering_servo[FRONT_LEFT].attached() || !steering_servo[FRONT_RIGHT].attached()) {      
       // setup servos for steering
@@ -336,4 +327,51 @@ float calc_speed_pid() {
   //Serial.print("\t");
   //Serial.println(main_amps);
   return main_amps;
+}
+
+void calc_steer(float *servo_angles) // servo_angles float[4]
+{ 
+  float s_sp[2] = {0,0};
+  if (  RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL) {
+    s_sp[0] = RC_coms.steer_f*MAX_STEER_ANGLE;
+    s_sp[1] = RC_coms.steer_f*MAX_STEER_ANGLE; //RC_coms.steer_r*MAX_STEER_ANGLE;
+  } else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS
+          || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS){
+    if (NUC_drive_coms.steer_type == 1) {
+      NUC_drive_coms.steer = constrain(NUC_drive_coms.steer,-MAX_STEER_ANGLE,MAX_STEER_ANGLE);
+      s_sp[0] = NUC_drive_coms.steer;
+      s_sp[1] = NUC_drive_coms.steer;
+    } else {
+      float dist[2];
+      steer_angle_distribution(dist); // 2 elements
+      NUC_drive_coms.steer = constrain(NUC_drive_coms.steer,-MAX_STEER_ANGLE,MAX_STEER_ANGLE);
+      float rest_angle = 0;
+      s_sp[0] = dist[0] * NUC_drive_coms.steer - rest_angle;
+      s_sp[1] = rest_angle;
+    }
+  } else {
+    s_sp[0] = 0;
+    s_sp[1] = 0;
+  }
+    s_sp[0] = -RC_coms.steer_f*MAX_STEER_ANGLE;
+    s_sp[1] = RC_coms.steer_f*MAX_STEER_ANGLE; //RC_coms.steer_r*MAX_STEER_ANGLE;
+  if (s_sp[0] > 0) {
+    servo_angles[FRONT_LEFT]  = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+    servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+  } else {
+    servo_angles[FRONT_LEFT]  = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+    servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+  }
+  if (s_sp[1] > 0) {
+    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+  } else {
+    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+  }
+}
+
+void steer_angle_distribution(float *out) { // 2 elements
+  out[0] = 1;
+  out[1] = 0;
 }

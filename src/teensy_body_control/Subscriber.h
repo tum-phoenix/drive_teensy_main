@@ -16,8 +16,8 @@ Subscriber<MotorState> *motor_state_Subscriber;
 void remote_control_callback(const RemoteControl& msg)
 {
   RC_coms.thr = msg.velocity;
-  RC_coms.steer_f = msg.steer_front;
-  RC_coms.steer_r = msg.steer_rear;
+  RC_coms.steer_f = -msg.steer_front;
+  RC_coms.steer_r = -msg.steer_rear;
   RC_coms.drive_state = msg.drive_mode;
   
 }

@@ -92,10 +92,10 @@ void cyclePublisher(DJI& dji)
     float V3_raw = analogRead(CELL3_PIN);
     float V4_raw = analogRead(CELL4_PIN);
     float curr_raw = analogRead(CURR_PIN);
-    float V1 = V1_raw * Cell1_FACTOR;
-    float V2 = V2_raw * Cell2_FACTOR;
-    float V3 = V3_raw * Cell3_FACTOR;
-    float V4 = V4_raw * Cell4_FACTOR;
+    float V1 = V1_raw * 0.0064453125;
+    float V2 = V2_raw * 0.0064453125;
+    float V3 = V3_raw * 0.0064453125;
+    float V4 = V4_raw * 0.0052815755;
     float curr = curr_raw * CURR_FACTOR;
 
     PowerState msg;
@@ -107,7 +107,10 @@ void cyclePublisher(DJI& dji)
     msg.main_voltage = V4; 
     msg.main_current = curr;
     if (msg.v1 < V_ALM_FINAL || msg.v2 < V_ALM_FINAL || msg.v3 < V_ALM_FINAL || msg.v4 < V_ALM_FINAL) bat_alm = 1;
-
+    if (msg.v1 < BAT_V_THRESH || msg.v2 < BAT_V_THRESH || msg.v3 < BAT_V_THRESH|| msg.v4 < BAT_V_THRESH) bat_alm = 0;
+    setRGBled(0,255,0);
+    if (msg.v1 < 3.9 || msg.v2 < 3.9 || msg.v3 < 3.9 || msg.v4 < 3.9) setRGBled(255,255,0);
+    if (msg.v1 < 3.3 || msg.v2 < 3.3 || msg.v3 < 3.3 || msg.v4 < 3.3) setRGBled(255,0,0);
     const int pres = power_Publisher->broadcast(msg);
     if (pres < 0)
     {
@@ -313,11 +316,11 @@ void pf_ir_routine() {
   sei();
   if (state == HIGH) {
     start_odom = pos;
-    setRGBled(0,0,255);
+    //setRGBled(0,0,255);
   } else {
     lot_size = pos - start_odom;
     last_lot_pos = pos;
     publish_lot_msg = 10;
-    setRGBled(255,255,255);
+    //setRGBled(255,255,255);
   }
 }

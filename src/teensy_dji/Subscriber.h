@@ -16,9 +16,9 @@ void motor_target_callback(const MotorTarget& msg)
 {
   v_veh();
   double sign_v = sgn(vveh);
-  //if (sign_v == sgn(msg.current_rear_left))  VescUartSetCurrent(msg.current_rear_left,0);
+  VescUartSetCurrent(msg.current_rear_left,0);
   //else                                        VescUartSetCurrentBrake(msg.current_rear_left,0);
-  //if (sign_v == sgn(msg.current_rear_right)) VescUartSetCurrent(msg.current_rear_right,1);
+  VescUartSetCurrent(msg.current_rear_right,1);
   //else                                        VescUartSetCurrentBrake(msg.current_rear_right,1);
 
   // set servos

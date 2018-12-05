@@ -32,10 +32,11 @@ MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CELL3_PIN A10
 #define CELL4_PIN A0
 #define CURR_PIN  A1
-#define Cell1_FACTOR 0.02578125/4 // 14k + 2k 
-#define Cell2_FACTOR 0.02578125/4 // 14k + 2k 
-#define Cell3_FACTOR 0.02578125/4 // 14k + 2k 
-#define Cell4_FACTOR 0.02124425/4 // 10k + 1k8 
+#define BAT_V_THRESH 0.5
+#define CELL_R1 14000.0
+#define CELL_R2 2000.0
+#define BAT_V_THRESH 0.5
+#define A_REF 3.3
 #define CURR_FACTOR 0.00161133/4 // 0R01 + 200V/V
 #define V_ALM_FINAL 3.0
 

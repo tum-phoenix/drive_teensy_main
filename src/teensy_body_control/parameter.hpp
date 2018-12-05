@@ -17,6 +17,7 @@ static struct Params
    float speedKp = 100;
    float speedKi = 0.0;
    float speedKd = 0.1;
+   float tvFactor = 0.5;
 } configuration;
 
 // save parameter struct in non-volatile EEPROM
@@ -46,6 +47,7 @@ class : public uavcan::IParamManager
         if (index == 2) { out_name = "speedKp[-]"; }
         if (index == 3) { out_name = "speedKi[-]"; }
         if (index == 4) { out_name = "speedKd[-]"; }
+        if (index == 4) { out_name = "tvFactor[-]"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
@@ -96,6 +98,15 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.speedKd);
             }
         }
+        else if (name == "tvFactor[-]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.tvFactor = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed tvFactor[-] to: ");
+                Serial.println(configuration.tvFactor);
+            }
+        }
         else
         {
             Serial.println("Can't assign parameter!");
@@ -123,6 +134,10 @@ class : public uavcan::IParamManager
         else if (name == "speedKd[-]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.speedKd;
+        }
+        else if (name == "tvFactor[-]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.tvFactor;
         }
         else
         {
@@ -180,6 +195,12 @@ class : public uavcan::IParamManager
         {
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().speedKd;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 10;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
+        }
+        else if (name == "tvFactor[-]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().tvFactor;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
         }
         else
