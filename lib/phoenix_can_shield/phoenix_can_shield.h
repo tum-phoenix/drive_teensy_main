@@ -242,4 +242,8 @@ inline int sgn(double x)
         return (x>0) ? 1 : -1;
 }
 
+float deg2rad(float deg){
+  return deg / 180.0 * PI;
+}
+
 #endif

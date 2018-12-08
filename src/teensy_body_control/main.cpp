@@ -23,6 +23,36 @@ static constexpr float framerate = 100;
 #define REAR_LEFT   MotorState::POS_REAR_LEFT
 #define REAR_RIGHT  MotorState::POS_REAR_RIGHT
 
+bool traction_lost[4] = {0,0,0,0};
+typedef struct {
+  float r;
+  float rl;
+  float delta[4];
+  float amps[4];
+  float l;
+  float lv;
+  float lh;
+  float v;
+  float beta;
+  float phi_p;
+  float ay;
+  float ax;
+
+  float rturnw[4];            // radius of each wheel to cover
+} body_state_t;
+body_state_t veh_state_sp;    // theoretical values
+body_state_t veh_state_ac;    // actual values
+
+typedef struct {
+  float l0   = 0.222;  // m    physical wheelbase
+  float s    = 0.177;  // m    track width
+  float m    = 2500;   // kg
+  float lv = 0.0885;   // -     position of center of gravity in x dir
+  float calpha = 1e6;  // N/rad     no wheel model availabe -> very high wheel stiffness     
+  float rwheel = 0.033; // m
+} body_att_t;
+static body_att_t veh_att;
+
 typedef struct {
   float thr = 0;
   float steer_f = 0;
@@ -63,15 +93,23 @@ float steering_servo_position[2];
 float steering_servo_offset[2] = {98,92};
 uint8_t steering_servo_pin[2] = {9,10};
 #define MAX_STEER_ANGLE 32              // degrees
-#define MAX_STEER_SERVO_INNER 50
-#define MAX_STEER_SERVO_OUTER 30
+#define MAX_STEER_SERVO_INNER 50        // servo degrees
+#define MAX_STEER_SERVO_OUTER 30        // servo degrees
+#define AC_TO_SERV_INN (MAX_STEER_SERVO_INNER/MAX_STEER_ANGLE)
+#define AC_TO_SERV_OUT (MAX_STEER_SERVO_OUTER/MAX_STEER_ANGLE)
 
-float calc_speed_pid();
-void dynamics_control();
+void calc_speed_pid();
 void vesc_command();
 uint8_t check_arm_state();
-void calc_steer(float*);
+void calc_steer_basic();
+void calc_servo_angles(float *);
 void steer_angle_distribution(float*);
+void calc_body_state_sp();
+void traction_control();
+void torque_vectoring();
+void calc_traction();
+void dynamics_control();
+float v_norm(uint8_t);
 
 #include "Publisher.h"
 #include "Subscriber.h"
@@ -164,6 +202,7 @@ void loop() {
   //bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
   
   // main driving dynamics calculations
+  calc_body_state_sp();
   dynamics_control();
 
   // cycle publisher
@@ -181,8 +220,6 @@ void loop() {
   // toggle heartbeat
   toggleHeartBeat();
 }
-
-#define WHEEL_RADIUS_M 0.033
                                             // acceleration directions in the car
 float a_x_imu() {                           //       _____.
   return (float)bno_data.lin_acc[0];        //      /_    .
@@ -197,15 +234,27 @@ float a_y_imu() {                           //     |      |     Y
 float v_wheel(uint8_t wheelindex) {
   float mean_rounds = (float)measuredVal_motor[wheelindex].rpm / 7; // RPM
   mean_rounds /= 60; // RPS
-  mean_rounds = mean_rounds * 2 * M_PI * WHEEL_RADIUS_M; // m/s;
+  mean_rounds = mean_rounds * 2 * M_PI * veh_att.rwheel; // m/s;
   return mean_rounds;
 }
 
 float v_veh() {
-  //if (a_x_imu()>=0) return (v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)) / 2;
-  //else              return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)) / 2;
-  return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)+v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)) / 4;
+  float trusted = 0;
+  float vsum = 0;
+  calc_traction();
+  for (uint8_t i = 0; i<4; i++) {
+    if (!traction_lost[i]) {
+      trusted = trusted + 1;
+      vsum = vsum + v_norm(i);
+    }
+  }
+  return vsum / trusted;
 }
+
+float v_norm(uint8_t ind) { // normalized wheelspeed to center of gravity
+  return v_wheel(ind) / veh_state_sp.rturnw[ind] * veh_state_sp.r;
+}
+
 
 float a_wheel(uint8_t wheelindex) {
   static float v = 0;
@@ -221,33 +270,56 @@ float a_wheel(uint8_t wheelindex) {
 void dynamics_control() {
 
   if (check_arm_state()) {
-    #define ACC_FACTOR 0.3
-    float main_amps = calc_speed_pid();
     float steer[4];
-    calc_steer(steer);   // 4 elements
-    float tv_factor = configuration.tvFactor * constrain(RC_coms.steer_f+RC_coms.steer_r,-1,1);
-    float acc_factor = sgn(main_amps)*ACC_FACTOR;
-    actor_comms.motor_amps[FRONT_LEFT]  = main_amps * (1+tv_factor-acc_factor);
-    actor_comms.motor_amps[FRONT_RIGHT] = main_amps * (1-tv_factor-acc_factor);
-    actor_comms.motor_amps[REAR_LEFT]   = main_amps * (1+tv_factor+acc_factor);
-    actor_comms.motor_amps[REAR_RIGHT]  = main_amps * (1-tv_factor+acc_factor);
+    calc_servo_angles(steer); // 4 elements
+    torque_vectoring();
+    traction_control();
 
     actor_comms.servo_angles[FRONT_LEFT] = steer[FRONT_LEFT];
     actor_comms.servo_angles[FRONT_RIGHT] = steer[FRONT_RIGHT];
     actor_comms.servo_angles[REAR_LEFT] = steer[REAR_LEFT];
     actor_comms.servo_angles[REAR_RIGHT] = steer[REAR_RIGHT];
     
-  } else {
-    actor_comms.motor_amps[FRONT_LEFT] = 0;
-    actor_comms.motor_amps[FRONT_RIGHT] = 0;
-    actor_comms.motor_amps[REAR_LEFT] = 0;
-    actor_comms.motor_amps[REAR_RIGHT] = 0;
+  } else {    
+    veh_state_ac.amps[FRONT_LEFT]  = 0;
+    veh_state_ac.amps[FRONT_RIGHT] = 0;
+    veh_state_ac.amps[REAR_LEFT]   = 0;
+    veh_state_ac.amps[REAR_RIGHT]  = 0;
     
     actor_comms.servo_angles[FRONT_LEFT] = 0;
     actor_comms.servo_angles[FRONT_RIGHT] = 0;
     actor_comms.servo_angles[REAR_LEFT] = 0;
     actor_comms.servo_angles[REAR_RIGHT] = 0;
   }
+  
+  actor_comms.motor_amps[FRONT_LEFT]  = veh_state_ac.amps[FRONT_LEFT];
+  actor_comms.motor_amps[FRONT_RIGHT] = veh_state_ac.amps[FRONT_RIGHT];
+  actor_comms.motor_amps[REAR_LEFT]   = veh_state_ac.amps[REAR_LEFT];
+  actor_comms.motor_amps[REAR_RIGHT]  = veh_state_ac.amps[REAR_RIGHT];
+  
+}
+
+
+void torque_vectoring() {
+  #define ACC_FACTOR 0.3
+  float tv_factor = configuration.tvFactor * constrain(RC_coms.steer_f+RC_coms.steer_r,-1,1);
+  float acc_factor = sgn(veh_state_sp.amps[0])*ACC_FACTOR;
+  veh_state_sp.amps[FRONT_LEFT]  = veh_state_sp.amps[FRONT_LEFT] * (1+tv_factor-acc_factor);
+  veh_state_sp.amps[FRONT_RIGHT] = veh_state_sp.amps[FRONT_RIGHT] * (1-tv_factor-acc_factor);
+  veh_state_sp.amps[REAR_LEFT]   = veh_state_sp.amps[REAR_LEFT] * (1+tv_factor+acc_factor);
+  veh_state_sp.amps[REAR_RIGHT]  = veh_state_sp.amps[REAR_RIGHT] * (1-tv_factor+acc_factor);
+}
+
+void traction_control() {
+  #define MODIFIER_STEP 0.1
+  static float modifier[4] = {1,1,1,1};
+  calc_traction();
+  for (uint8_t ind = 0; ind < 4; ind++) {
+    if (traction_lost[ind]) modifier[ind] = constrain(modifier[ind] - MODIFIER_STEP,0,1);
+    else                    modifier[ind] = constrain(modifier[ind] + MODIFIER_STEP,0,1);
+    veh_state_ac.amps[ind]  = veh_state_sp.amps[ind] * modifier[ind];
+  }
+
 }
 
 void vesc_command() {
@@ -258,10 +330,6 @@ void vesc_command() {
   //else                                                    VescUartSetCurrentBrake(actor_comms.motor_amps[FRONT_RIGHT],FRONT_RIGHT);
   VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT],FRONT_LEFT);
   VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT],FRONT_RIGHT);
-}
-
-void traction_control() {
-  if (true);
 }
 
 uint8_t check_arm_state() {
@@ -280,7 +348,7 @@ uint8_t check_arm_state() {
   }
 }
 
-float calc_speed_pid() {
+void calc_speed_pid() {
   static float main_amps, v_val;
   static float P_, i_, i_integral, I_, d_, D_, speed_PID, v_error, v_err_prev, derr;
   static float prevt, t, dt;
@@ -300,6 +368,8 @@ float calc_speed_pid() {
   } else {
     v_sp = 0;
   }
+  veh_state_sp.v = v_sp;
+
   v_error = v_sp - v_val;
   v_err_prev = v_error;
   derr = v_error - v_err_prev;
@@ -326,15 +396,17 @@ float calc_speed_pid() {
   //Serial.print(D_);
   //Serial.print("\t");
   //Serial.println(main_amps);
-  return main_amps;
+  veh_state_sp.amps[0] = main_amps;
+  veh_state_sp.amps[1] = main_amps;
+  veh_state_sp.amps[2] = main_amps;
+  veh_state_sp.amps[3] = main_amps;
 }
 
-void calc_steer(float *servo_angles) // servo_angles float[4]
-{ 
+void calc_steer_basic() { 
   float s_sp[2] = {0,0};
   if (  RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL) {
-    s_sp[0] = RC_coms.steer_f*MAX_STEER_ANGLE;
-    s_sp[1] = RC_coms.steer_f*MAX_STEER_ANGLE; //RC_coms.steer_r*MAX_STEER_ANGLE;
+    s_sp[0] = -RC_coms.steer_f*MAX_STEER_ANGLE;
+    s_sp[1] = RC_coms.steer_r*MAX_STEER_ANGLE;
   } else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS
           || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS){
     if (NUC_drive_coms.steer_type == 1) {
@@ -353,25 +425,92 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     s_sp[0] = 0;
     s_sp[1] = 0;
   }
-    s_sp[0] = -RC_coms.steer_f*MAX_STEER_ANGLE;
-    s_sp[1] = RC_coms.steer_f*MAX_STEER_ANGLE; //RC_coms.steer_r*MAX_STEER_ANGLE;
-  if (s_sp[0] > 0) {
-    servo_angles[FRONT_LEFT]  = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
-    servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
-  } else {
-    servo_angles[FRONT_LEFT]  = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
-    servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
-  }
-  if (s_sp[1] > 0) {
-    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
-    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
-  } else {
-    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
-    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
-  }
+  veh_state_sp.delta[FRONT_LEFT]  = s_sp[0];
+  veh_state_sp.delta[FRONT_RIGHT] = s_sp[0];
+  veh_state_sp.delta[REAR_LEFT]   = s_sp[1];
+  veh_state_sp.delta[REAR_RIGHT]  = s_sp[1];
+
+  veh_state_ac.delta[FRONT_LEFT]  = veh_state_sp.delta[FRONT_LEFT];
+  veh_state_ac.delta[FRONT_RIGHT] = veh_state_sp.delta[FRONT_RIGHT];
+  veh_state_ac.delta[REAR_LEFT]   = veh_state_sp.delta[REAR_LEFT];
+  veh_state_ac.delta[REAR_RIGHT]  = veh_state_sp.delta[REAR_RIGHT];
+}
+
+void calc_servo_angles(float *servo_angles) {// servo_angles float[4])
+  if (veh_state_sp.delta[FRONT_LEFT] > 0)  servo_angles[FRONT_LEFT]  = -veh_state_ac.delta[FRONT_LEFT]*AC_TO_SERV_INN; // left turn
+  else                                     servo_angles[FRONT_LEFT]  = -veh_state_ac.delta[FRONT_LEFT]*AC_TO_SERV_OUT; // right turn
+  if (veh_state_sp.delta[FRONT_RIGHT] > 0) servo_angles[FRONT_RIGHT] = -veh_state_ac.delta[FRONT_RIGHT]*AC_TO_SERV_OUT; // left turn
+  else                                     servo_angles[FRONT_RIGHT] = -veh_state_ac.delta[FRONT_RIGHT]*AC_TO_SERV_INN; // right turn
+  if (veh_state_sp.delta[REAR_LEFT] > 0)   servo_angles[REAR_LEFT]   = -veh_state_ac.delta[REAR_LEFT]*AC_TO_SERV_OUT; // right turn
+  else                                     servo_angles[REAR_LEFT]   = -veh_state_ac.delta[REAR_LEFT]*AC_TO_SERV_INN; // left turn
+  if (veh_state_sp.delta[REAR_RIGHT] > 0)  servo_angles[REAR_RIGHT]  = -veh_state_ac.delta[REAR_RIGHT]*AC_TO_SERV_INN; // right turn
+  else                                     servo_angles[REAR_RIGHT]  = -veh_state_ac.delta[REAR_RIGHT]*AC_TO_SERV_OUT; // left turn
 }
 
 void steer_angle_distribution(float *out) { // 2 elements
   out[0] = 1;
   out[1] = 0;
 }
+
+float deltav_STM() {
+  return (veh_state_sp.delta[0]+veh_state_sp.delta[1])/2;
+}
+
+float deltah_STM() {
+  return (veh_state_sp.delta[2]+veh_state_sp.delta[3])/2;
+}
+
+void calc_geometric_data() {
+  veh_state_sp.l  = veh_att.l0 * (deltav_STM()/(deltav_STM()-deltah_STM()+0.001)); // "+0.001" is for avoiding division by 0
+  veh_state_sp.lh = veh_state_sp.l-veh_att.lv;
+  veh_state_sp.rl = veh_state_sp.l/tan(deg2rad(deltav_STM()));
+  veh_state_sp.r  = sqrt(pow(veh_state_sp.l - veh_att.lv,2)+pow(veh_state_sp.rl,2));
+  veh_state_sp.rturnw[FRONT_LEFT]  = sqrt(pow(veh_state_sp.rl,2)+pow(veh_state_sp.l,2))-veh_att.s/2;
+  veh_state_sp.rturnw[FRONT_RIGHT] = sqrt(pow(veh_state_sp.rl,2)+pow(veh_state_sp.l,2))+veh_att.s/2;
+  veh_state_sp.rturnw[REAR_LEFT]   = sqrt(pow(veh_state_sp.rl,2)+pow(veh_att.l0-veh_state_sp.l,2))-veh_att.s/2;
+  veh_state_sp.rturnw[REAR_RIGHT]  = sqrt(pow(veh_state_sp.rl,2)+pow(veh_att.l0-veh_state_sp.l,2))+veh_att.s/2;
+}
+
+void calc_body_state_sp() {
+
+/*
+TODO list:
+typedef struct {
+  float r;              done
+  float rl;             done
+  float delta[4];       done - simple parallel steering 
+  float amps[4];        done - all 4 the same
+  float l;              done
+  float lh;             done
+  float v;              done
+  float beta;
+  float phi_p;
+  float ay;
+  float ax;
+
+  float rturnw[4]
+} body_state_t;
+*/
+  calc_steer_basic();
+  calc_speed_pid();
+  calc_geometric_data();
+}
+
+void calc_traction() {
+  #define SLIP_THRESHOLD_ABS 1
+  #define SLIP_THRESHOLD_REL 1
+  float v_ref = 0;
+  // decide if acceleration or deceleration
+  if ((veh_state_sp.amps[0]+veh_state_sp.amps[1]+veh_state_sp.amps[2]+veh_state_sp.amps[3]) / 4 > 0) {
+    v_ref = min(min(v_norm(0),v_norm(1)), min(v_norm(2),v_norm(3)));
+  } else {
+    v_ref = max(max(v_norm(0),v_norm(1)), max(v_norm(2),v_norm(3)));
+  }
+
+  for (uint8_t i = 0; i < 4; i++) {
+    if (abs(v_norm(i)-v_ref) >= SLIP_THRESHOLD_ABS && abs((v_norm(i)-v_ref) / v_ref) >= SLIP_THRESHOLD_REL) {
+      traction_lost[i] = true;
+    }
+  }
+}
+
