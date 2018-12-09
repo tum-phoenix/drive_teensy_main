@@ -1,7 +1,4 @@
 float16 lin_vel         # linear velocity in m/s
-float16 phi             # steering angle in rad
+float16 phi_f           # steering angle in rad front axis
+float16 phi_r           # steering angle in rad rear axis
 uint2 blink_com         # turn indicator
-bool steer_type         # steering type: crab walk or ackermann
-
-bool STEER_CRAB = 1     # crab walk style
-bool STEER_NORM = 0     # normal steering style 

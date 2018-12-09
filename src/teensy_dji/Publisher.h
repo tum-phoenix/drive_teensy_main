@@ -20,7 +20,7 @@ using namespace phoenix_msgs;
 
 
 // filters out changes faster that 5 Hz.
-float filterFrequency = 10.0;
+float filterFrequency = 2.0;
 
 // create a one pole (RC) lowpass filter
 FilterOnePole lowpassFilterFront(LOWPASS, filterFrequency); 
@@ -232,9 +232,13 @@ void cyclePublisher(DJI& dji)
       
 
       // right stick - left/right - front rear
-      lowpassFilterFront.input(dji.rightHorizontalStick(msg.steer_front));
-      msg.steer_front = lowpassFilterFront.output();
-      
+      float temp = msg.steer_front;
+      if (abs(temp-dji.rightHorizontalStick(msg.steer_front))<0.4){
+        lowpassFilterFront.input(dji.rightHorizontalStick(msg.steer_front));
+        msg.steer_front = lowpassFilterFront.output();
+      } else {
+        msg.steer_front = temp;
+      }
       const int pres = rc_Publisher->broadcast(msg);
       if (pres < 0)
       {
