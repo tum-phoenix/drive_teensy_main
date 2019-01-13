@@ -47,7 +47,7 @@ class : public uavcan::IParamManager
         if (index == 2) { out_name = "speedKp[-]"; }
         if (index == 3) { out_name = "speedKi[-]"; }
         if (index == 4) { out_name = "speedKd[-]"; }
-        if (index == 4) { out_name = "tvFactor[-]"; }
+        if (index == 5) { out_name = "tvFactor[-]"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override

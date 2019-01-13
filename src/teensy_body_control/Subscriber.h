@@ -46,6 +46,7 @@ void nuc_drive_callback(const NucDriveCommand& msg) {
   NUC_drive_coms.lin_vel    = msg.lin_vel;
   NUC_drive_coms.steer_f    = (float)msg.phi_f*180.0/PI;
   NUC_drive_coms.steer_r    = (float)msg.phi_r*180.0/PI;
+  NUC_drive_coms.blink      = (uint8_t)msg.blink_com;
 }
 
 void initSubscriber(Node<NodeMemoryPoolSize> *node)

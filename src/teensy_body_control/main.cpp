@@ -7,6 +7,7 @@
 #include "PWMServo.h"
 #include "parameter.hpp"
 #include <math.h>
+//#include <PulsePosition.h>
 
 // CAN Node settings
 static constexpr uint32_t nodeID = 101;
@@ -34,8 +35,9 @@ drive_comm_t RC_coms;
 
 typedef struct {
   float lin_vel = 0;        // m/s
-  float steer_f = 0;    // deg/s
+  float steer_f = 0;        // deg/s
   float steer_r = 0;
+  uint8_t blink = 0;        // 0 - none, 1 - left, 2 - right, 3 - both
 } NUC_drive_coms_t;
 NUC_drive_coms_t NUC_drive_coms;
 
@@ -43,6 +45,7 @@ NUC_drive_coms_t NUC_drive_coms;
 static struct actor_comm_t{
   float motor_amps[4] = {0,0,0,0};
   float servo_angles[4] = {90,90,90,90};
+  float steer_angles[2] = {0,0};
 } actor_comms;
 
 bldcMeasure measuredVal_motor[4];
@@ -67,12 +70,31 @@ uint8_t steering_servo_pin[2] = {9,10};
 #define MAX_STEER_SERVO_INNER 50
 #define MAX_STEER_SERVO_OUTER 30
 
+/*
+// lights
+#define OFF_PPM 1000
+#define ON_PPM 2000
+#define AD_PPM 1500
+#define PPM_LIGHT_PIN 5
+enum light_ppm_order {
+  NONE,
+  LIGHT_FRONT,
+  LIGHT_REAR,
+  BREAK,
+  BLINK_LEFT,
+  BLINK_RIGHT,
+  RC_LED
+};
+PulsePositionOutput ppm_light;
+*/
+
 float calc_speed_pid();
 void dynamics_control();
 void vesc_command();
 uint8_t check_arm_state();
 void calc_steer(float*);
 void steer_angle_distribution(float*);
+float v_veh();
 
 #include "Publisher.h"
 #include "Subscriber.h"
@@ -89,6 +111,17 @@ void setup() {
   SetSerialPort(&Serial1, &Serial3, &Serial1, &Serial1);
   //SetDebugSerialPort(&Serial);
   
+
+  // lights
+  /*
+  ppm_light.begin(PPM_LIGHT_PIN);
+  ppm_light.write(LIGHT_FRONT, ON_PPM);
+  ppm_light.write(LIGHT_REAR, OFF_PPM);
+  ppm_light.write(BREAK, OFF_PPM);
+  ppm_light.write(BLINK_LEFT, OFF_PPM);
+  ppm_light.write(BLINK_RIGHT, OFF_PPM);
+  ppm_light.write(RC_LED, OFF_PPM);
+  */
   // setup power
   analogReadRes(12);
   analogReadAveraging(4);
@@ -181,6 +214,29 @@ void loop() {
   
   // toggle heartbeat
   toggleHeartBeat();
+/*
+  // update LED command
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL && check_arm_state()) {
+    ppm_light.write(RC_LED, ON_PPM);
+  } else if (check_arm_state()) {
+    ppm_light.write(RC_LED, OFF_PPM);
+  }
+  else {
+    ppm_light.write(RC_LED, AD_PPM);
+  }
+  if (NUC_drive_coms.blink == 1 || NUC_drive_coms.blink == 3) {
+    ppm_light.write(BLINK_LEFT,ON_PPM);
+  } else {
+    ppm_light.write(BLINK_LEFT,OFF_PPM);
+  }
+  if (NUC_drive_coms.blink == 2 || NUC_drive_coms.blink == 3) {
+    ppm_light.write(BLINK_RIGHT,ON_PPM);
+  } else {
+    ppm_light.write(BLINK_RIGHT,OFF_PPM);
+  }
+  */
+
+ cyclePublisher_Drive_State(v_veh(), actor_comms.steer_angles[0], actor_comms.steer_angles[1]);
 }
 
 #define WHEEL_RADIUS_M 0.033
@@ -205,7 +261,7 @@ float v_wheel(uint8_t wheelindex) {
 float v_veh() {
   //if (a_x_imu()>=0) return (v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)) / 2;
   //else              return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)) / 2;
-  return (/*v_wheel(FRONT_LEFT)+*/v_wheel(FRONT_RIGHT)/*+v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)*/) / 1;
+  return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)/*+v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)*/) / 2;
 }
 
 float a_wheel(uint8_t wheelindex) {
@@ -237,7 +293,13 @@ void dynamics_control() {
     actor_comms.servo_angles[FRONT_RIGHT] = steer[FRONT_RIGHT];
     actor_comms.servo_angles[REAR_LEFT] = steer[REAR_LEFT];
     actor_comms.servo_angles[REAR_RIGHT] = steer[REAR_RIGHT];
-    
+    /*
+    if (sgn(main_amps) != sgn(v_veh()) && abs(main_amps) > 0.5) {
+      ppm_light.write(BREAK, ON_PPM);
+    } else {
+      ppm_light.write(BREAK, OFF_PPM);
+    }
+    */
   } else {
     actor_comms.motor_amps[FRONT_LEFT] = 0;
     actor_comms.motor_amps[FRONT_RIGHT] = 0;
@@ -248,6 +310,7 @@ void dynamics_control() {
     actor_comms.servo_angles[FRONT_RIGHT] = 0;
     actor_comms.servo_angles[REAR_LEFT] = 0;
     actor_comms.servo_angles[REAR_RIGHT] = 0;
+    //ppm_light.write(BREAK, OFF_PPM);
   }
 }
 
@@ -346,6 +409,8 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     s_sp[0] = 0;
     s_sp[1] = 0;
   }
+  actor_comms.steer_angles[0] = s_sp[0];
+  actor_comms.steer_angles[1] = s_sp[1];
   if (s_sp[0] > 0) {
     servo_angles[FRONT_LEFT]  = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
     servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;

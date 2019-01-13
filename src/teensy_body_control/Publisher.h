@@ -6,6 +6,7 @@
 #include "phoenix_msgs/MotorState.hpp"
 #include "phoenix_msgs/MotorTarget.hpp"
 #include "phoenix_msgs/PowerState.hpp"
+#include "phoenix_msgs/DriveState.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -26,6 +27,7 @@ Publisher<ImuData> *imuPublisher;
 Publisher<MotorState> *motorStatePublisher;
 Publisher<MotorTarget> *motorTargetPublisher;
 Publisher<PowerState> *power_Publisher;
+Publisher<DriveState> *drive_Publisher;
 
 
 // initialize all publisher
@@ -36,6 +38,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   imuPublisher = new Publisher<ImuData>(*node);
   motorStatePublisher = new Publisher<MotorState>(*node);
   motorTargetPublisher = new Publisher<MotorTarget>(*node);
+  drive_Publisher = new Publisher<DriveState>(*node);
 
   // initiliaze publishers
   if(power_Publisher->init() < 0)
@@ -57,10 +60,16 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
     {
       Serial.println("Unable to initialize motorStatePublisher!");
     }
+
+  if(drive_Publisher->init() < 0)
+    {
+      Serial.println("Unable to initialize drive_Publisher!");
+    }
   // set TX timeout
   imuPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorStatePublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorTargetPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  drive_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
 // cycle BNO publisher
@@ -161,6 +170,20 @@ void cyclePublisher_Power()
     } else {
       digitalWrite(trafficLedPin, HIGH);
     }
+  }
+}
+
+void cyclePublisher_Drive_State(float v, float s_f, float s_r)
+{
+  DriveState msg;
+  msg.v = v;
+  msg.steer_f = s_f;
+  msg.steer_r = s_r;
+  if (drive_Publisher->broadcast(msg) < 0)
+  {
+    Serial.println("Error while broadcasting drive State comand");
+  } else {
+    digitalWrite(trafficLedPin, HIGH);
   }
 }
 
