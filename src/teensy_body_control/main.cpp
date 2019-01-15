@@ -20,7 +20,7 @@ static const char* nodeName = "org.phoenix.body_control";
 static constexpr float framerate = 100;
 
 // Driving dynamics
-#define FRONT_LEFT  MotorState::POS_FRONT_LEFT 
+#define FRONT_LEFT  MotorState::POS_FRONT_LEFT
 #define FRONT_RIGHT MotorState::POS_FRONT_RIGHT
 #define REAR_LEFT   MotorState::POS_REAR_LEFT
 #define REAR_RIGHT  MotorState::POS_REAR_RIGHT
@@ -56,7 +56,7 @@ int power_update_rate = 5;
 MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CELL4_PIN A0
 #define CURR_PIN  A1
-#define Cell4_FACTOR 0.0052815755 // 10k + 1k8 
+#define Cell4_FACTOR 0.0052815755 // 10k + 1k8
 #define CURR_FACTOR 0.00161133/4 // 0R01 + 200V/V
 
 // BNO055 imu
@@ -111,7 +111,7 @@ void setup() {
   Serial3.begin(115200);
   SetSerialPort(1, 3);
   //SetDebugSerialPort(&Serial);
-  
+
 
   // lights
   /*
@@ -172,18 +172,23 @@ void loop() {
   cycleNode(node);
 
   // update motor front left information
-  if (!VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT)){
-    Serial.println("failed to get motor data front left!");
+  switch (VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT)) {
+    case COMM_GET_VALUES:
+      Serial.println("received status data front left");
+      cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT);
+      break;
+    default:
+      break;
   }
-  else {
-    cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT);
-  }
+
   // update motor front right information
-  if (!VescUartGetValue(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT)) {
-    Serial.println("failed to get motor data front right!");
-  }
-  else {
-    cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT);
+  switch (VescUartGetValue(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT)) {
+    case COMM_GET_VALUES:
+      Serial.println("received status data front right");
+      cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT);
+      break;
+    default:
+      break;
   }
 
   // BNO055 data aquisition
@@ -197,7 +202,7 @@ void loop() {
   //bno_data.lin_acc = bno055.getVector(Adafruit_BNO055::VECTOR_LINEARACCEL);
   //bno_data.gyro = bno055.getVector(Adafruit_BNO055::VECTOR_GYROSCOPE);
   //bno_data.euler = bno055.getVector(Adafruit_BNO055::VECTOR_EULER);
-  
+
   // main driving dynamics calculations
   dynamics_control();
 
@@ -205,14 +210,14 @@ void loop() {
   //cyclePublisherBNO(bno_data);
   cyclePublisher_Actor_Comms(actor_comms);
 
-  // set the connected Motors 
+  // set the connected Motors
   vesc_command();
   steering_servo[FRONT_LEFT].write(steering_servo_offset[FRONT_LEFT]+actor_comms.servo_angles[FRONT_LEFT]);
   steering_servo[FRONT_RIGHT].write(steering_servo_offset[FRONT_RIGHT]+actor_comms.servo_angles[FRONT_RIGHT]);
-    
+
   // spam Power info
   cyclePublisher_Power();
-  
+
   // toggle heartbeat
   toggleHeartBeat();
 /*
@@ -248,8 +253,8 @@ float a_x_imu() {                           //       _____.
                                             //     |      |
 float a_y_imu() {                           //     |      |     Y
   return (float)bno_data.lin_acc[0];        //     |    --+----->
-}                                           //     | _    |  
-                                            //      |_|   . 
+}                                           //     | _    |
+                                            //      |_|   .
                                             //     |______.
 
 float v_wheel(uint8_t wheelindex) {
@@ -306,7 +311,7 @@ void dynamics_control() {
     actor_comms.motor_amps[FRONT_RIGHT] = 0;
     actor_comms.motor_amps[REAR_LEFT] = 0;
     actor_comms.motor_amps[REAR_RIGHT] = 0;
-    
+
     actor_comms.servo_angles[FRONT_LEFT] = 0;
     actor_comms.servo_angles[FRONT_RIGHT] = 0;
     actor_comms.servo_angles[REAR_LEFT] = 0;
@@ -316,13 +321,13 @@ void dynamics_control() {
 }
 
 void vesc_command() {
-  double sign_v = sgn(v_veh());
+  //double sign_v = sgn(v_veh());
   //if (sign_v == sgn(actor_comms.motor_amps[FRONT_LEFT]))  VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT],FRONT_LEFT);
   //else                                                    VescUartSetCurrentBrake(actor_comms.motor_amps[FRONT_LEFT],FRONT_LEFT);
   //if (sign_v == sgn(actor_comms.motor_amps[FRONT_RIGHT])) VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT],FRONT_RIGHT);
   //else                                                    VescUartSetCurrentBrake(actor_comms.motor_amps[FRONT_RIGHT],FRONT_RIGHT);
-  VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT],FRONT_LEFT);
-  VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT],FRONT_RIGHT);
+  VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT], FRONT_LEFT);
+  VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT], FRONT_RIGHT);
 }
 
 void traction_control() {
@@ -332,7 +337,7 @@ void traction_control() {
 uint8_t check_arm_state() {
   if (RC_coms.aux_mode == RemoteControl::AUX_MODE_CENTER
      || RC_coms.aux_mode == RemoteControl::AUX_MODE_UP) {
-    if (!steering_servo[FRONT_LEFT].attached() || !steering_servo[FRONT_RIGHT].attached()) {      
+    if (!steering_servo[FRONT_LEFT].attached() || !steering_servo[FRONT_RIGHT].attached()) {
       // setup servos for steering
       steering_servo[FRONT_LEFT].attach(steering_servo_pin[FRONT_LEFT]);
       steering_servo[FRONT_RIGHT].attach(steering_servo_pin[FRONT_RIGHT]);
@@ -357,7 +362,7 @@ float calc_speed_pid() {
 
   //calculate Velocity error
   static float v_sp = 0;
-  if (  RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL 
+  if (  RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL
      || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS) {
     v_sp = constrain(RC_coms.thr*configuration.maxSpeed,-configuration.maxSpeed,configuration.maxSpeed);
   } else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS){
@@ -395,7 +400,7 @@ float calc_speed_pid() {
 }
 
 void calc_steer(float *servo_angles) // servo_angles float[4]
-{ 
+{
   float s_sp[2] = {0,0};
   if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL) {
     s_sp[0] = -RC_coms.steer_f*MAX_STEER_ANGLE;
