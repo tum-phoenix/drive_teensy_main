@@ -5,7 +5,7 @@
 #include "phoenix_msgs/RemoteControl.hpp"
 #include "phoenix_msgs/MotorState.hpp"
 #include "phoenix_msgs/NucDriveCommand.hpp"
-#include <VescUart.h>
+#include "vuart.h"
 
 using namespace uavcan;
 using namespace phoenix_msgs;

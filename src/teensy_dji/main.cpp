@@ -1,6 +1,6 @@
 #include "Arduino.h"
 #include "phoenix_can_shield.h"
-#include <VescUart.h>
+#include "vuart.h"
 #include <math.h>
 
 #include "PWMServo.h"
@@ -27,9 +27,9 @@ DJI dji(Serial2);
 // Power
 int power_update_rate = 5;
 MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
-#define CELL1_PIN A5
+#define CELL3_PIN A5
 #define CELL2_PIN A11
-#define CELL3_PIN A10
+#define CELL1_PIN A10
 #define CELL4_PIN A0
 #define CURR_PIN  A1
 #define BAT_V_THRESH 0.5
@@ -102,7 +102,7 @@ void setup() {
   // setup UART port for vesc
   Serial1.begin(115200);
   Serial3.begin(115200);
-  SetSerialPort(&Serial1, &Serial3, &Serial1, &Serial1);
+  SetSerialPort(1, 3);
 
   Serial.begin(115200);
 

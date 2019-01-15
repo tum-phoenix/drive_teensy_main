@@ -3,10 +3,11 @@
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
 #include <utility/imumaths.h>
-#include <VescUart.h>
+//#include <VescUart.h>
 #include "PWMServo.h"
 #include "parameter.hpp"
 #include <math.h>
+#include "vuart.h"
 //#include <PulsePosition.h>
 
 // CAN Node settings
@@ -108,7 +109,7 @@ void setup() {
   // setup UART port for vesc
   Serial1.begin(115200);
   Serial3.begin(115200);
-  SetSerialPort(&Serial1, &Serial3, &Serial1, &Serial1);
+  SetSerialPort(1, 3);
   //SetDebugSerialPort(&Serial);
   
 
@@ -205,7 +206,7 @@ void loop() {
   cyclePublisher_Actor_Comms(actor_comms);
 
   // set the connected Motors 
-  //vesc_command();
+  vesc_command();
   steering_servo[FRONT_LEFT].write(steering_servo_offset[FRONT_LEFT]+actor_comms.servo_angles[FRONT_LEFT]);
   steering_servo[FRONT_RIGHT].write(steering_servo_offset[FRONT_RIGHT]+actor_comms.servo_angles[FRONT_RIGHT]);
     

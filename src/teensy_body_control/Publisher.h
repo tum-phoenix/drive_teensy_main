@@ -11,7 +11,7 @@
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
 #include <utility/imumaths.h>
-#include <VescUart.h>
+#include "vuart.h"
 
 using namespace uavcan;
 using namespace phoenix_msgs;

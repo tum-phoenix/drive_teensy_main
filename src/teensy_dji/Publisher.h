@@ -8,7 +8,7 @@
 #include "phoenix_msgs/ParallelParking.hpp"
 #include "phoenix_msgs/UserButtons.hpp"
 #include "phoenix_can_shield.h"
-#include <VescUart.h>
+#include "vuart.h"
 #include <Filters.h>
 
 using namespace uavcan;
