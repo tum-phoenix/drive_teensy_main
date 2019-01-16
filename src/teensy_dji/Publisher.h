@@ -20,7 +20,7 @@ using namespace phoenix_msgs;
 
 
 // filters out changes faster that 5 Hz.
-float filterFrequency = 2.0;
+float filterFrequency = 5.0;
 
 // create a one pole (RC) lowpass filter
 FilterOnePole lowpassFilterFront(LOWPASS, filterFrequency); 
@@ -188,7 +188,11 @@ void cyclePublisher(DJI& dji)
     float ds = (rear.speed * dt)/1000000; // mm
     float temp = (float)rear.dist_trav + ds;
     rear.dist_trav = (uint32_t)temp;
-   }
+
+    vesc_send_status_request(0);
+    vesc_send_status_request(1);
+
+  }
 
   // remote control update -> at rc_update_rate -> check time first
   if(last_rc_update +

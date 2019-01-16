@@ -105,11 +105,10 @@ void setup() {
   readParamsFromEEPROM();
 
   Serial.begin(115200);
-
   // setup UART port for vesc
-  Serial1.begin(115200);
-  Serial3.begin(115200);
-  SetSerialPort(1, 3);
+  Serial1.begin(250000);
+  Serial3.begin(250000);
+  SetSerialPort(&Serial1, &Serial3);
   //SetDebugSerialPort(&Serial);
 
 
@@ -164,7 +163,7 @@ void loop() {
   uint32_t t = micros();
   float cpu_load = (float)(t-t_)/(1000000./(float)framerate);
   setRGBled((uint8_t)(cpu_load*2.55),255-(uint8_t)(cpu_load*2.55),0);
-  //Serial.print("CPU Load: "); Serial.print(cpu_load); Serial.prntln(" \%");
+  //Serial.print("CPU Load: "); Serial.print(cpu_load); Serial.println(" \%");
   cycleWait(framerate);
   t_ = micros();
 
@@ -174,7 +173,6 @@ void loop() {
   // update motor front left information
   switch (VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT)) {
     case COMM_GET_VALUES:
-      Serial.println("received status data front left");
       cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT);
       break;
     default:
@@ -184,7 +182,6 @@ void loop() {
   // update motor front right information
   switch (VescUartGetValue(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT)) {
     case COMM_GET_VALUES:
-      Serial.println("received status data front right");
       cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT);
       break;
     default:
@@ -241,7 +238,8 @@ void loop() {
     ppm_light.write(BLINK_RIGHT,OFF_PPM);
   }
   */
-
+ vesc_send_status_request(0);
+ vesc_send_status_request(1);
  cyclePublisher_Drive_State(v_veh(), actor_comms.steer_angles[0], actor_comms.steer_angles[1]);
 }
 

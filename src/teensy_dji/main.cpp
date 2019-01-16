@@ -100,9 +100,10 @@ void setup() {
   pinMode(BUZZER_PIN,OUTPUT);
   digitalWrite(BUZZER_PIN,1);
   // setup UART port for vesc
-  Serial1.begin(115200);
-  Serial3.begin(115200);
-  SetSerialPort(1, 3);
+  
+  Serial1.begin(250000);
+  Serial3.begin(250000);
+  SetSerialPort(&Serial1, &Serial3);
 
   Serial.begin(115200);
 

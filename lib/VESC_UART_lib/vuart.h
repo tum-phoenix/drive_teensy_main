@@ -8,10 +8,10 @@
 
 // SetSerialPort sets the serial to communicate with the VESC
 // Multiple ports possible
-void SetSerialPort(uint8_t _serialPort1, uint8_t _serialPort2, uint8_t _serialPort3, uint8_t _serialPort4);
-void SetSerialPort(uint8_t _serialPort1, uint8_t _serialPort2, uint8_t _serialPort3);
-void SetSerialPort(uint8_t _serialPort1, uint8_t _serialPort2);
-void SetSerialPort(uint8_t _serialPort1);
+void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2, HardwareSerial* _serialPort3, HardwareSerial* _serialPort4);
+void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2, HardwareSerial* _serialPort3);
+void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2);
+void SetSerialPort(HardwareSerial* _serialPort1);
 
 static HardwareSerial* serialPort1;
 static HardwareSerial* serialPort2;
@@ -19,60 +19,23 @@ static HardwareSerial* serialPort3;
 static HardwareSerial* serialPort4;
 static usb_serial_class* debugSerialPort = NULL;
 
-void SetSerialPort(uint8_t _serialPort1, uint8_t  _serialPort2, uint8_t  _serialPort3, uint8_t  _serialPort4) {
-	switch (_serialPort1) {
-		case 1:
-			serialPort1 = &Serial1;
-			break;
-		case 2:
-			serialPort1 = &Serial2;
-			break;
-		case 3:
-			serialPort1 = &Serial3;
-			break;
-		default:
-			serialPort1 = &Serial1;
-			break;
-	}
-	switch (_serialPort2) {
-		case 1:
-			serialPort2 = &Serial1;
-			break;
-		case 2:
-			serialPort2 = &Serial2;
-			break;
-		case 3:
-			serialPort2 = &Serial3;
-			break;
-		default:
-			serialPort2 = &Serial1;
-			break;
-	}
-	switch (_serialPort3) {
-		case 1:
-			serialPort3 = &Serial1;
-			break;
-		case 2:
-			serialPort3 = &Serial2;
-			break;
-		case 3:
-			serialPort3 = &Serial3;
-			break;
-		default:
-			serialPort3 = &Serial1;
-			break;
-	}
+void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2, HardwareSerial* _serialPort3, HardwareSerial* _serialPort4) {
+	serialPort1 = _serialPort1;
+	serialPort2 = _serialPort2;
+	serialPort3 = _serialPort3;
+	serialPort4 = _serialPort4;
+	
 }
 
-void SetSerialPort(uint8_t _serialPort1) {
+void SetSerialPort(HardwareSerial* _serialPort1) {
 	SetSerialPort(_serialPort1, _serialPort1, _serialPort1, _serialPort1);
 }
 
-void SetSerialPort(uint8_t _serialPort1, uint8_t _serialPort2) {
+void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2) {
 	SetSerialPort(_serialPort1, _serialPort2, _serialPort1, _serialPort1);
 }
 
-void SetSerialPort(uint8_t _serialPort1,uint8_t _serialPort2,uint8_t _serialPort3) {
+void SetSerialPort(HardwareSerial* _serialPort1,HardwareSerial* _serialPort2,HardwareSerial* _serialPort3) {
 	SetSerialPort(_serialPort1, _serialPort2, _serialPort3, _serialPort1);
 }
 
@@ -83,7 +46,9 @@ enum possible_msg_states {
   START,
   TYPE,
   SIZE,
-} msg_state[3];
+};
+
+uint8_t msg_state[3] = {OUT, OUT, OUT};
 
 int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 	uint16_t crcPayload = crc16(payload, lenPay);
@@ -107,7 +72,7 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 	messageSend[count++] = (uint8_t)(crcPayload >> 8);
 	messageSend[count++] = (uint8_t)(crcPayload & 0xFF);
 	messageSend[count++] = 3;
-	messageSend[count] = 0;
+	messageSend[count] = NULL;
 
 	HardwareSerial *serial;
 
@@ -145,7 +110,8 @@ void make_serial_available(uint8_t serial_port) {
 	shift_rx_stream_to_buffer(serial_port);			// read from serial port into ringbuffer.
 }
 
-uint8_t find_status_message(uint8_t serial_port) {
+uint8_t find_status_message(uint8_t serial_port) 
+{
 	// Message Layout: total length = 64
 	// 1: Start-Byte = 2
 	// 2: Payload_Length-uint8 = 59 for a COMM_GET_VALUES
@@ -155,8 +121,8 @@ uint8_t find_status_message(uint8_t serial_port) {
 	// x+2: crc1-Byte
 	// x+3: End-Byte = 3
 
-/* This is how VESC generates the message
-  ------------------------------------------------------------------------------
+	/* This is how VESC generates the message
+  	------------------------------------------------------------------------------
 	ind = 0;
 	send_buffer[ind++] = COMM_GET_VALUES;
 	buffer_append_float16(send_buffer, mc_interface_temp_fet_filtered(), 1e1, &ind);
@@ -178,9 +144,9 @@ uint8_t find_status_message(uint8_t serial_port) {
 	buffer_append_float32(send_buffer, mc_interface_get_pid_pos_now(), 1e6, &ind);
 	send_buffer[ind++] = app_get_configuration()->controller_id;
 	commands_send_packet(send_buffer, ind=59);
-  ------------------------------------------------------------------------------
+  	------------------------------------------------------------------------------
 	and this is how the message is send with handler_num=0:
-  ------------------------------------------------------------------------------
+  	------------------------------------------------------------------------------
 	void packet_send_packet(unsigned char *data, unsigned int len, int handler_num) {
 		int b_ind = 0;
 		if (len <= 256) {
@@ -207,7 +173,7 @@ uint8_t find_status_message(uint8_t serial_port) {
 	------------------------------------------------------------------------------
 	*/
 
-  /* // implementation 2
+  	/* // implementation 2
 	static uint8_t msg_len = 0;
 	static uint8_t msg_type = 0;
 	const uint8_t max_payload = 59;
@@ -273,45 +239,67 @@ uint8_t find_status_message(uint8_t serial_port) {
   */ // end implementation 2
 
   // implementation 1
-  static uint8_t msg_len = 0;
-  while (Serial_available(serial_port)) {
-    if (msg_state[serial_port] == OUT) 							// curser before Start-Byte
+	static uint8_t msg_len = 0;
+	while (Serial_available(serial_port)) 
+	{
+		Serial.print("serial available ");
+		Serial.print(Serial_available(serial_port));
+		Serial.print("  msg_state ");
+		Serial.println(msg_state[serial_port]);
+		if (msg_state[serial_port] == OUT) 							// curser before Start-Byte
 		{ // waiting for start byte '2'
 			msg_state[serial_port] = (Serial_read(serial_port) == 2) ? START : OUT;
 		}
-    else if (msg_state[serial_port] == START && Serial_available(serial_port) >= 2)  // curser before Payload_Length-Byte
+		else if (msg_state[serial_port] == START && Serial_available(serial_port) >= 2)  // curser before Payload_Length-Byte
 		{ // identify type and discard message if type is not COMM_GET_VALUES
 			msg_state[serial_port] = (Serial_peek(serial_port, 1) == COMM_GET_VALUES) ? TYPE : OUT;
 		}
-    else if (msg_state[serial_port] == TYPE) 				// curser before Payload_Length-Byte
+		else if (msg_state[serial_port] == TYPE) 				// curser before Payload_Length-Byte
 		{ // message type is validated, now get length
-      msg_len = Serial_peek(serial_port);
-      msg_state[serial_port] = SIZE;
-    }
-    else if (msg_state[serial_port] == SIZE && Serial_available(serial_port) >= 1 + msg_len + 2 + 1) // curser before Payload_Length-Byte
-		{
-			// check if End-Byte is valid ; curser is before Payload_Length-Byte
-			if (Serial_peek(serial_port, 1 + msg_len + 2) != 3) {
-				msg_state[serial_port] = OUT;
-				break;
-			}
-
-			// validate via crc ; curser is before Payload_Length-Byte
-      uint16_t crc_comp = (((uint16_t)Serial_peek(serial_port, 1 + msg_len) << 8) & 0xFF00) + ((uint16_t)Serial_peek(serial_port,1 + msg_len) & 0xFF);
-      if (crc_comp == calculate_crc_from_ring_buffer(serial_port, 1, msg_len)) {
-        Serial_flush(serial_port, 1); 					// move curser before Type-Byte
-        return msg_len;
-      }
-			else {
-        msg_state[serial_port] = OUT;
-      }
-    }
-    else
-		{
-			break;
+			msg_len = Serial_peek(serial_port);
+			msg_state[serial_port] = SIZE;
+			
 		}
-  }
-  return false;
+		else if ((msg_state[serial_port] == SIZE) && (Serial_available(serial_port) >= (1 + msg_len + 2))) // curser before Payload_Length-Byte
+		{
+			
+			Serial.print("  msg_state[serial_port] == SIZE ");
+			for (uint8_t i=0 ; i<=msg_len+1+2+1; i++) {
+				Serial.print((uint8_t)Serial_peek(serial_port, i));
+				Serial.print(" ");
+			}
+			Serial.println("end");
+			// check if End-Byte is valid ; curser is before Payload_Length-Byte
+			/*
+			if (Serial_peek(serial_port, 1 + msg_len + 2) != 3) 
+			{
+				msg_state[serial_port] = OUT;
+				continue;
+			}
+			*/
+
+			Serial.print("  endbyte okay ");
+			// validate via crc ; curser is before Payload_Length-Byte
+			uint16_t crc_comp = (((uint16_t)Serial_peek(serial_port, 1 + msg_len) << 8) & 0xFF00) + ((uint16_t)Serial_peek(serial_port,1 + msg_len + 1) & 0xFF);
+			if (crc_comp == calculate_crc_from_ring_buffer(serial_port, 1, msg_len)) 
+			{
+				Serial_flush(serial_port, 1); 					// move curser before Type-Byte, delete length byte
+				msg_state[serial_port] = OUT;
+				
+				Serial.print("message received ---------- ");
+				Serial.println(msg_len);
+				return msg_len;
+			}
+			else 
+			{
+				Serial.print("  crc not okay ");
+				msg_state[serial_port] = OUT;
+				continue;
+			}
+		}
+		else break;
+	}
+	return false;
 }
 
 bool vesc_compute_receive(uint8_t serial_port) {
@@ -321,17 +309,20 @@ bool vesc_compute_receive(uint8_t serial_port) {
 }
 
 uint8_t VescUartGetValue(bldcMeasure& values, uint8_t serial_port) {
-  make_serial_available(serial_port);
-  uint8_t msg_len = find_status_message(serial_port);
+	static byte message_content[70];
+  	make_serial_available(serial_port);
+	uint8_t msg_len = find_status_message(serial_port);
 	uint8_t msg_type = 0;
-
+	Serial.print("got length ");
+	Serial.println(msg_len);
 	if (msg_len) {
+		Serial.print("len");
 		// read message type from Type-Byte
 		msg_type = Serial_read(serial_port);		// curser before payload
-
+		Serial.println(msg_type);
 		// read message from ringbuffer into a byte array
-		byte message_content[msg_len + 1];
 		transfer_data_from_ring_to_array(serial_port, message_content, msg_len - 1); // curser now before crc-bytes
+		setRGBled(255,255,0);
 
 		// flush crc and end-bytes
 		Serial_flush(serial_port, 2 + 1);		// curser now behind end of message-container
@@ -368,6 +359,42 @@ void VescUartSetCurrent(float current, int num) {
 
 	payload[index++] = COMM_SET_CURRENT ;
 	buffer_append_int32(payload, (int32_t)(current * 1000), &index);
+	PackSendPayload(payload, 5, num);
+}
+
+void VescUartSetCurrentBrake(float brakeCurrent, int num) {
+	int32_t index = 0;
+	uint8_t payload[5];
+
+	payload[index++] = COMM_SET_CURRENT_BRAKE;
+	buffer_append_int32(payload, (int32_t)(brakeCurrent * 1000), &index);
+	PackSendPayload(payload, 5, num);
+}
+
+void VescUartSetRPM(float rpm, int num) {
+	int32_t index = 0;
+	uint8_t payload[5];
+
+	payload[index++] = COMM_SET_RPM ;
+	buffer_append_int32(payload, (int32_t)(rpm), &index);
+	PackSendPayload(payload, 5, num);
+}
+
+void VescUartSetDuty(float duty, int num) {
+	int32_t index = 0;
+	uint8_t payload[5];
+
+	payload[index++] = COMM_SET_DUTY ;
+	buffer_append_int32(payload, (int32_t)(duty * 100000), &index);
+	PackSendPayload(payload, 5, num);
+}
+
+void VescUartSetPosition(float position, int num) {
+	int32_t index = 0;
+	uint8_t payload[5];
+
+	payload[index++] = COMM_SET_POS ;
+	buffer_append_int32(payload, (int32_t)(position * 1000000.0), &index);
 	PackSendPayload(payload, 5, num);
 }
 

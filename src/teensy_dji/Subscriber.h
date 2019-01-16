@@ -17,9 +17,7 @@ void motor_target_callback(const MotorTarget& msg)
   v_veh();
   double sign_v = sgn(vveh);
   VescUartSetCurrent(msg.current_rear_left,0);
-  //else                                        VescUartSetCurrentBrake(msg.current_rear_left,0);
   VescUartSetCurrent(msg.current_rear_right,1);
-  //else                                        VescUartSetCurrentBrake(msg.current_rear_right,1);
 
   // set servos
   steering_servo_position_3 = steering_servo_offset_3 + (float)msg.servo_rear_left;
