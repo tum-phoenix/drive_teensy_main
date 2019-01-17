@@ -66,7 +66,7 @@ Adafruit_BNO055 bno055 = Adafruit_BNO055();
 PWMServo steering_servo[2];
 float steering_servo_position[2];
 float steering_servo_offset[2] = {98,92};
-uint8_t steering_servo_pin[2] = {9,10};
+uint8_t steering_servo_pin[2] = {10,9};
 #define MAX_STEER_ANGLE 32              // degrees
 #define MAX_STEER_SERVO_INNER 50
 #define MAX_STEER_SERVO_OUTER 30
@@ -162,7 +162,7 @@ void loop() {
   // wait in cycle
   uint32_t t = micros();
   float cpu_load = (float)(t-t_)/(1000000./(float)framerate);
-  setRGBled((uint8_t)(cpu_load*2.55),255-(uint8_t)(cpu_load*2.55),0);
+  setRGBled((uint8_t)(cpu_load*255),255-(uint8_t)(cpu_load*255),0);
   //Serial.print("CPU Load: "); Serial.print(cpu_load); Serial.println(" \%");
   cycleWait(framerate);
   t_ = micros();
