@@ -23,10 +23,11 @@ public:
 
   }
 
+  static HardwareSerial* serialPort1;
   // begin
-  void begin()
+  void begin(HardwareSerial* _serialPort1)
   {
-    sbus.begin();
+    _serialPort1->begin(100000,SERIAL_8E1_RXINV_TXINV);
   }
 
   // read data from DJI remote
