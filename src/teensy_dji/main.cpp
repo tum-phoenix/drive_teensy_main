@@ -67,8 +67,8 @@ float steering_servo_position_3;
 float steering_servo_position_4;
 float steering_servo_offset_3 = 88.8;
 float steering_servo_offset_4 = 101;
-uint8_t steering_servo_3_pin = 5;
-uint8_t steering_servo_4_pin = 20;
+uint8_t steering_servo_3_pin = 20;
+uint8_t steering_servo_4_pin = 5;
 
 // motor target misc
 uint32_t last_motor_target_receive = 0;
@@ -141,7 +141,7 @@ void setup() {
   node->setModeOperational();
 
   // setup DJI remote
-  dji.begin();
+  dji.begin(&Serial2);
 
   digitalWrite(BUZZER_PIN,0);
 }
