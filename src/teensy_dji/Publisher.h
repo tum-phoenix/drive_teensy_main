@@ -269,17 +269,17 @@ void cyclePublisher(DJI& dji)
     r = R0/r;
     r = r-R0;
     r = round(r);
-    bit_but = (uint8_t)r ^ 0x1F; // invert bits for bitwise results
+    bitwise_buttons = (uint8_t)r ^ 0x1F; // invert bits for bitwise results
     //Serial.print(raw);
     //Serial.print("\t");
     //Serial.print(r);
     //Serial.print("\t");
-    //Serial.println(bit_but, BIN);
+    //Serial.println(bitwise_buttons, BIN);
     analogReadRes(12);
     analogReadAveraging(4);
 
     UserButtons msg;
-    msg.bit_but = bit_but;
+    msg.bit_but = bitwise_buttons;
 
     const int pres = user_buttons_Publisher->broadcast(msg);
     if (pres < 0)

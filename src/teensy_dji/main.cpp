@@ -1,5 +1,6 @@
 #include "Arduino.h"
 #include "phoenix_can_shield.h"
+#include "parameter.hpp"
 #include "vuart.h"
 #include <math.h>
 
@@ -50,7 +51,7 @@ MonotonicTime last_buzzer_update = MonotonicTime::fromMSec(0);
 int button_update_rate = 10;
 MonotonicTime last_button_update = MonotonicTime::fromMSec(0);
 #define BUTTON_PIN A4
-uint8_t bit_but = 0;
+uint8_t bitwise_buttons = 0;
 
 // Vesc
 int motor_state_update_rate = 100;
@@ -65,10 +66,10 @@ PWMServo steering_servo_3;
 PWMServo steering_servo_4;
 float steering_servo_position_3;
 float steering_servo_position_4;
-float steering_servo_offset_3 = 88.8;
-float steering_servo_offset_4 = 101;
-uint8_t steering_servo_3_pin = 20;
-uint8_t steering_servo_4_pin = 5;
+float steering_servo_offset_3 = 90;
+float steering_servo_offset_4 = 90;
+uint8_t steering_servo_3_pin = 5;
+uint8_t steering_servo_4_pin = 20;
 
 // motor target misc
 uint32_t last_motor_target_receive = 0;
@@ -101,8 +102,8 @@ void setup() {
   digitalWrite(BUZZER_PIN,1);
   // setup UART port for vesc
   
-  Serial1.begin(250000);
-  Serial3.begin(250000);
+  Serial1.begin(230400);
+  Serial3.begin(230400);
   SetSerialPort(&Serial1, &Serial3);
 
   Serial.begin(115200);
@@ -110,10 +111,6 @@ void setup() {
   // setup power
   analogReadRes(12);
   analogReadAveraging(4);
-
-  // setup servos for steering
-  steering_servo_3.attach(steering_servo_3_pin);
-  steering_servo_4.attach(steering_servo_4_pin);
 
   // Pepperl+Fuchs
   //RISING/HIGH/CHANGE/LOW/FALLING
@@ -137,6 +134,9 @@ void setup() {
   // set up filters
   configureCanAcceptanceFilters(*node);
 
+  // init parameter
+  initParameter(node);
+
   // start up node
   node->setModeOperational();
 
@@ -144,6 +144,14 @@ void setup() {
   dji.begin(&Serial2);
 
   digitalWrite(BUZZER_PIN,0);
+
+  // setup servos for steering
+  steering_servo_3.attach(steering_servo_3_pin);
+  steering_servo_4.attach(steering_servo_4_pin);
+  steering_servo_offset_3 = configuration.steeringOff_RL + 90;
+  steering_servo_offset_4 = configuration.steeringOff_RR + 90;
+  
+
 }
 
 void loop() {
@@ -192,4 +200,23 @@ void buzzer_routine() {
 bool check_arm_state() {
   // TODO
   return true;
+}
+
+bool button_pressed(uint8_t pos) {
+  if (bitwise_buttons >> pos && 1) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool buttonrise(uint8_t pos) {
+  static bool cur_state[5] = {0,0,0,0,0};
+  static bool last_state[5] = {0,0,0,0,0};
+  cur_state[pos] = button_pressed(pos);
+  if(cur_state[pos] && !last_state[pos]) {
+    return true;
+  } else {
+    return false;
+  }
 }
