@@ -18,6 +18,8 @@ static struct Params
    float speedKi = 0.0;
    float speedKd = 0.1;
    float tvFactor = 0.5;
+   float steeringOff_FL = 0;
+   float steeringOff_FR = 0;
 } configuration;
 
 // save parameter struct in non-volatile EEPROM
@@ -48,6 +50,8 @@ class : public uavcan::IParamManager
         if (index == 3) { out_name = "speedKi[-]"; }
         if (index == 4) { out_name = "speedKd[-]"; }
         if (index == 5) { out_name = "tvFactor[-]"; }
+        if (index == 6) { out_name = "Servo Offset FL [deg]"; }
+        if (index == 7) { out_name = "Servo Offset FR [deg]"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
@@ -107,7 +111,25 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.tvFactor);
             }
         }
-        else
+        else if (name == "Servo Offset FL [deg]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.steeringOff_FL = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Servo Offset FL [deg] to: ");
+                Serial.println(configuration.steeringOff_FL);
+            }
+        }
+        else if (name == "Servo Offset FR [deg]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.steeringOff_FR = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Servo Offset FR [deg] to: ");
+                Serial.println(configuration.steeringOff_FR);
+            }
+        }
+        else 
         {
             Serial.println("Can't assign parameter!");
         }
@@ -138,6 +160,14 @@ class : public uavcan::IParamManager
         else if (name == "tvFactor[-]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.tvFactor;
+        }
+        else if (name == "Servo Offset FL [deg]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.steeringOff_FL;
+        }
+        else if (name == "Servo Offset FR [deg]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.steeringOff_FR;
         }
         else
         {
@@ -202,6 +232,18 @@ class : public uavcan::IParamManager
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().tvFactor;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
+        }
+        else if (name == "Servo Offset FR [deg]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().steeringOff_FR;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 15;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -15;
+        }
+        else if (name == "Servo Offset FL [deg]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().steeringOff_FL;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 15;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -15;
         }
         else
         {
