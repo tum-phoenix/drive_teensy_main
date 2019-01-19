@@ -153,12 +153,18 @@ void setup() {
   // set up BNO055 IMU Adafruit_Sensor
   bno055.begin();
 
+  steering_servo_offset[FRONT_LEFT] = configuration.steeringOff_FL + 90;
+  steering_servo_offset[FRONT_RIGHT] = configuration.steeringOff_FR + 90;
+  
+  steering_servo[FRONT_LEFT].attach(steering_servo_pin[FRONT_LEFT]);
+  steering_servo[FRONT_RIGHT].attach(steering_servo_pin[FRONT_RIGHT]);
 }
 
 imu_t bno_data;
 
 uint32_t t_ = 0;
 void loop() {
+  
   // wait in cycle
   uint32_t t = micros();
   float cpu_load = (float)(t-t_)/(1000000./(float)framerate);
@@ -265,7 +271,7 @@ float v_wheel(uint8_t wheelindex) {
 float v_veh() {
   //if (a_x_imu()>=0) return (v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)) / 2;
   //else              return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)) / 2;
-  return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)/*+v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)*/) / 2;
+  return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)+v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)) / 4;
 }
 
 float a_wheel(uint8_t wheelindex) {
@@ -290,8 +296,8 @@ void dynamics_control() {
     float acc_factor = sgn(main_amps)*ACC_FACTOR;
     actor_comms.motor_amps[FRONT_LEFT]  = main_amps * (1+tv_factor-acc_factor);
     actor_comms.motor_amps[FRONT_RIGHT] = main_amps * (1-tv_factor-acc_factor);
-    actor_comms.motor_amps[REAR_LEFT]   = main_amps * (1+tv_factor+acc_factor);
-    actor_comms.motor_amps[REAR_RIGHT]  = main_amps * (1-tv_factor+acc_factor);
+    actor_comms.motor_amps[REAR_LEFT]   = main_amps * (1+tv_factor+acc_factor) / 1.7;
+    actor_comms.motor_amps[REAR_RIGHT]  = main_amps * (1-tv_factor+acc_factor) / 1.7;
 
     actor_comms.servo_angles[FRONT_LEFT] = steer[FRONT_LEFT];
     actor_comms.servo_angles[FRONT_RIGHT] = steer[FRONT_RIGHT];
@@ -335,11 +341,11 @@ void traction_control() {
 uint8_t check_arm_state() {
   if (RC_coms.aux_mode == RemoteControl::AUX_MODE_CENTER
      || RC_coms.aux_mode == RemoteControl::AUX_MODE_UP) {
-    if (!steering_servo[FRONT_LEFT].attached() || !steering_servo[FRONT_RIGHT].attached()) {
+    //if (!steering_servo[FRONT_LEFT].attached() || !steering_servo[FRONT_RIGHT].attached()) {
       // setup servos for steering
-      steering_servo[FRONT_LEFT].attach(steering_servo_pin[FRONT_LEFT]);
-      steering_servo[FRONT_RIGHT].attach(steering_servo_pin[FRONT_RIGHT]);
-    }
+    //  steering_servo[FRONT_LEFT].attach(steering_servo_pin[FRONT_LEFT]);
+    //  steering_servo[FRONT_RIGHT].attach(steering_servo_pin[FRONT_RIGHT]);
+    //}
     return true;
   } else {
     //steering_servo[FRONT_LEFT].detach();
@@ -423,10 +429,10 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
   }
   if (s_sp[1] > 0) {
-    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
-    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_INNER;
+    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_OUTER;
   } else {
-    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
-    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_OUTER;
+    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_INNER;
   }
 }
