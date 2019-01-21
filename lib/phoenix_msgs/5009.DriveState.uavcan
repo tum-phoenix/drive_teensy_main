@@ -3,3 +3,4 @@
 float16 v
 float16 steer_f
 float16 steer_r
+uint8 arm
