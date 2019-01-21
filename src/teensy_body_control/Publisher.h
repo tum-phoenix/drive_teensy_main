@@ -1,5 +1,5 @@
-#ifndef	PUBLISHER_H
-#define	PUBLISHER_H
+#ifndef PUBLISHER_H
+#define PUBLISHER_H
 
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/ImuData.hpp"
@@ -16,7 +16,8 @@
 using namespace uavcan;
 using namespace phoenix_msgs;
 
-typedef struct {
+typedef struct
+{
   imu::Vector<3> lin_acc;
   imu::Vector<3> gyro;
   imu::Vector<3> euler;
@@ -29,7 +30,6 @@ Publisher<MotorTarget> *motorTargetPublisher;
 Publisher<PowerState> *power_Publisher;
 Publisher<DriveState> *drive_Publisher;
 
-
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
@@ -41,30 +41,30 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   drive_Publisher = new Publisher<DriveState>(*node);
 
   // initiliaze publishers
-  if(power_Publisher->init() < 0)
+  if (power_Publisher->init() < 0)
   {
     Serial.println("Unable to initialize power_Publisher!");
   }
 
-  if(imuPublisher->init() < 0)
+  if (imuPublisher->init() < 0)
   {
     Serial.println("Unable to initialize imuPublisher!");
   }
 
-  if(motorStatePublisher->init() < 0)
+  if (motorStatePublisher->init() < 0)
   {
     Serial.println("Unable to initialize motorStatePublisher!");
   }
 
-  if(motorTargetPublisher->init() < 0)
-    {
-      Serial.println("Unable to initialize motorStatePublisher!");
-    }
+  if (motorTargetPublisher->init() < 0)
+  {
+    Serial.println("Unable to initialize motorStatePublisher!");
+  }
 
-  if(drive_Publisher->init() < 0)
-    {
-      Serial.println("Unable to initialize drive_Publisher!");
-    }
+  if (drive_Publisher->init() < 0)
+  {
+    Serial.println("Unable to initialize drive_Publisher!");
+  }
   // set TX timeout
   imuPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorStatePublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
@@ -101,13 +101,13 @@ void cyclePublisherBNO(imu_t bno_data)
 void cyclePublisher_Mot_State(bldcMeasure data, uint8_t motor_position)
 {
   MotorState msg;
-  msg.position =      motor_position; // MotorState::POS_FRONT_RIGHT;
-  msg.temp_fet =      data.tempFetFiltered;
+  msg.position = motor_position; // MotorState::POS_FRONT_RIGHT;
+  msg.temp_fet = data.tempFetFiltered;
   msg.motor_current = data.avgMotorCurrent;
   msg.input_current = data.avgInputCurrent;
   msg.input_voltage = data.inpVoltage;
-  msg.rpm =           data.rpm / 7; // RPM = ERPM / 7
-  msg.fault_code =    data.faultCode;
+  msg.rpm = data.rpm / 7; // RPM = ERPM / 7
+  msg.fault_code = data.faultCode;
 
   //SerialPrint(measuredVal_motor1);
 
@@ -115,7 +115,9 @@ void cyclePublisher_Mot_State(bldcMeasure data, uint8_t motor_position)
   {
     Serial.print("Error while broadcasting motor state ");
     Serial.println(motor_position);
-  } else {
+  }
+  else
+  {
     digitalWrite(trafficLedPin, HIGH);
   }
 }
@@ -127,7 +129,7 @@ void cyclePublisher_Actor_Comms(actor_comm_t data)
   msg.current_front_right = data.motor_amps[FRONT_RIGHT];
   msg.current_rear_left = data.motor_amps[REAR_LEFT];
   msg.current_rear_right = data.motor_amps[REAR_RIGHT];
-  
+
   msg.servo_front_left = data.servo_angles[FRONT_LEFT];
   msg.servo_front_right = data.servo_angles[FRONT_RIGHT];
   msg.servo_rear_left = data.servo_angles[REAR_LEFT];
@@ -136,7 +138,9 @@ void cyclePublisher_Actor_Comms(actor_comm_t data)
   if (motorTargetPublisher->broadcast(msg) < 0)
   {
     Serial.println("Error while broadcasting motor commads");
-  } else {
+  }
+  else
+  {
     digitalWrite(trafficLedPin, HIGH);
   }
 }
@@ -145,9 +149,9 @@ void cyclePublisher_Actor_Comms(actor_comm_t data)
 void cyclePublisher_Power()
 {
   // Power
-  if(last_power_update +
-    MonotonicDuration::fromMSec(1000/(float)power_update_rate) <
-    systemClock->getMonotonic())
+  if (last_power_update +
+          MonotonicDuration::fromMSec(1000 / (float)power_update_rate) <
+      systemClock->getMonotonic())
   {
     last_power_update = systemClock->getMonotonic();
     float V4_raw = analogRead(CELL4_PIN);
@@ -156,18 +160,20 @@ void cyclePublisher_Power()
     float curr = curr_raw * CURR_FACTOR;
 
     PowerState msg;
-    msg.id= nodeID;
-    msg.v1= 0;
-    msg.v2= 0;
-    msg.v3= 0;
-    msg.v4= 0;
-    msg.main_voltage = V4; 
+    msg.id = nodeID;
+    msg.v1 = 0;
+    msg.v2 = 0;
+    msg.v3 = 0;
+    msg.v4 = 0;
+    msg.main_voltage = V4;
     msg.main_current = curr;
     const int pres = power_Publisher->broadcast(msg);
     if (pres < 0)
     {
       Serial.println("Error while broadcasting power state");
-    } else {
+    }
+    else
+    {
       digitalWrite(trafficLedPin, HIGH);
     }
   }
@@ -179,10 +185,13 @@ void cyclePublisher_Drive_State(float v, float s_f, float s_r)
   msg.v = v;
   msg.steer_f = s_f;
   msg.steer_r = s_r;
+  msg.arm = (uint8_t)check_arm_state();
   if (drive_Publisher->broadcast(msg) < 0)
   {
     Serial.println("Error while broadcasting drive State comand");
-  } else {
+  }
+  else
+  {
     digitalWrite(trafficLedPin, HIGH);
   }
 }
