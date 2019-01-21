@@ -17,7 +17,6 @@ static HardwareSerial* serialPort1;
 static HardwareSerial* serialPort2;
 static HardwareSerial* serialPort3;
 static HardwareSerial* serialPort4;
-static usb_serial_class* debugSerialPort = NULL;
 
 void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2, HardwareSerial* _serialPort3, HardwareSerial* _serialPort4) {
 	serialPort1 = _serialPort1;
@@ -72,7 +71,7 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 	messageSend[count++] = (uint8_t)(crcPayload >> 8);
 	messageSend[count++] = (uint8_t)(crcPayload & 0xFF);
 	messageSend[count++] = 3;
-	messageSend[count] = NULL;
+	messageSend[count] = 0;
 
 	HardwareSerial *serial;
 
@@ -90,6 +89,7 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 			serial=serialPort4;
 			break;
 		default:
+			return 0;
 			break;
 	}
 
@@ -242,10 +242,10 @@ uint8_t find_status_message(uint8_t serial_port)
 	static uint8_t msg_len = 0;
 	while (Serial_available(serial_port)) 
 	{
-		Serial.print("serial available ");
-		Serial.print(Serial_available(serial_port));
-		Serial.print("  msg_state ");
-		Serial.println(msg_state[serial_port]);
+		//Serial.print("serial available ");
+		//Serial.print(Serial_available(serial_port));
+		//Serial.print("  msg_state ");
+		//Serial.println(msg_state[serial_port]);
 		if (msg_state[serial_port] == OUT) 							// curser before Start-Byte
 		{ // waiting for start byte '2'
 			msg_state[serial_port] = (Serial_read(serial_port) == 2) ? START : OUT;
@@ -263,12 +263,12 @@ uint8_t find_status_message(uint8_t serial_port)
 		else if ((msg_state[serial_port] == SIZE) && (Serial_available(serial_port) >= (1 + msg_len + 2))) // curser before Payload_Length-Byte
 		{
 			
-			Serial.print("  msg_state[serial_port] == SIZE ");
+			//Serial.print("  msg_state[serial_port] == SIZE ");
 			for (uint8_t i=0 ; i<=msg_len+1+2+1; i++) {
-				Serial.print((uint8_t)Serial_peek(serial_port, i));
-				Serial.print(" ");
+				//Serial.print((uint8_t)Serial_peek(serial_port, i));
+				//Serial.print(" ");
 			}
-			Serial.println("end");
+			//Serial.println("end");
 			// check if End-Byte is valid ; curser is before Payload_Length-Byte
 			/*
 			if (Serial_peek(serial_port, 1 + msg_len + 2) != 3) 
@@ -278,7 +278,7 @@ uint8_t find_status_message(uint8_t serial_port)
 			}
 			*/
 
-			Serial.print("  endbyte okay ");
+			//Serial.print("  endbyte okay ");
 			// validate via crc ; curser is before Payload_Length-Byte
 			uint16_t crc_comp = (((uint16_t)Serial_peek(serial_port, 1 + msg_len) << 8) & 0xFF00) + ((uint16_t)Serial_peek(serial_port,1 + msg_len + 1) & 0xFF);
 			if (crc_comp == calculate_crc_from_ring_buffer(serial_port, 1, msg_len)) 
@@ -286,13 +286,13 @@ uint8_t find_status_message(uint8_t serial_port)
 				Serial_flush(serial_port, 1); 					// move curser before Type-Byte, delete length byte
 				msg_state[serial_port] = OUT;
 				
-				Serial.print("message received ---------- ");
-				Serial.println(msg_len);
+				//Serial.print("message received ---------- ");
+				//Serial.println(msg_len);
 				return msg_len;
 			}
 			else 
 			{
-				Serial.print("  crc not okay ");
+				//Serial.print("  crc not okay ");
 				msg_state[serial_port] = OUT;
 				continue;
 			}
@@ -313,13 +313,13 @@ uint8_t VescUartGetValue(bldcMeasure& values, uint8_t serial_port) {
   	make_serial_available(serial_port);
 	uint8_t msg_len = find_status_message(serial_port);
 	uint8_t msg_type = 0;
-	Serial.print("got length ");
-	Serial.println(msg_len);
+	//Serial.print("got length ");
+	//Serial.println(msg_len);
 	if (msg_len) {
-		Serial.print("len");
+		//Serial.print("len");
 		// read message type from Type-Byte
 		msg_type = Serial_read(serial_port);		// curser before payload
-		Serial.println(msg_type);
+		//Serial.println(msg_type);
 		// read message from ringbuffer into a byte array
 		transfer_data_from_ring_to_array(serial_port, message_content, msg_len - 1); // curser now before crc-bytes
 		setRGBled(255,255,0);
