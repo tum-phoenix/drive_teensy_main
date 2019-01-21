@@ -1,5 +1,5 @@
-#ifndef	PARAMETER_HPP
-#define	PARAMETER_HPP
+#ifndef PARAMETER_HPP
+#define PARAMETER_HPP
 
 #include <uavcan/uavcan.hpp>
 #include <uavcan/protocol/param_server.hpp>
@@ -12,8 +12,8 @@ static constexpr uint8_t param_start_addr = 0;
 // parameter storage with default values
 static struct Params
 {
-   float steeringOff_RL = 0;
-   float steeringOff_RR = 0;
+    float steeringOff_RL = 0;
+    float steeringOff_RR = 0;
 } configuration;
 
 // save parameter struct in non-volatile EEPROM
@@ -28,20 +28,25 @@ void readParamsFromEEPROM()
     EEPROM.get(param_start_addr, configuration);
 }
 
-
 /*
  * Now, we need to define some glue logic between the server (below) and our configuration storage (above).
  * This is done via the interface uavcan::IParamManager.
  */
 class : public uavcan::IParamManager
 {
-    void getParamNameByIndex(Index index, Name& out_name) const override
+    void getParamNameByIndex(Index index, Name &out_name) const override
     {
-        if (index == 0) { out_name = "Servo Offset RL [deg]"; }
-        if (index == 1) { out_name = "Servo Offset RR [deg]"; }
+        if (index == 0)
+        {
+            out_name = "Servo Offset RL [deg]";
+        }
+        if (index == 1)
+        {
+            out_name = "Servo Offset RR [deg]";
+        }
     }
 
-    void assignParamValue(const Name& name, const Value& value) override
+    void assignParamValue(const Name &name, const Value &value) override
     {
 
         if (name == "Servo Offset RL [deg]")
@@ -62,13 +67,13 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.steeringOff_RR);
             }
         }
-        else 
+        else
         {
             Serial.println("Can't assign parameter!");
         }
     }
 
-    void readParamValue(const Name& name, Value& out_value) const override
+    void readParamValue(const Name &name, Value &out_value) const override
     {
         if (name == "Servo Offset RL [deg]")
         {
@@ -88,7 +93,7 @@ class : public uavcan::IParamManager
     {
         Serial.println("Save - all Params");
         writeParamsToEEPROM();
-        return 0;     // Zero means that everything is fine.
+        return 0; // Zero means that everything is fine.
     }
 
     int eraseAllParams() override
@@ -101,10 +106,9 @@ class : public uavcan::IParamManager
     /**
      * Note that this method is optional. It can be left unimplemented.
      */
-    void readParamDefaultMaxMin(const Name& name, Value& out_def,
-                                NumericValue& out_max, NumericValue& out_min) const override
+    void readParamDefaultMaxMin(const Name &name, Value &out_def,
+                                NumericValue &out_max, NumericValue &out_min) const override
     {
-
 
         if (name == "Servo Offset RR [deg]")
         {
@@ -125,21 +129,21 @@ class : public uavcan::IParamManager
     }
 } param_manager;
 
-uavcan::ParamServer* server;
-
-
+uavcan::ParamServer *server;
 
 void initParameter(Node<NodeMemoryPoolSize> *node)
 {
-  readParamsFromEEPROM();
-  server = new uavcan::ParamServer(*node);
-  const int server_start_res = server->start(&param_manager);
-  if (server_start_res < 0)
-  {
-    Serial.println("Failed to start ParamServer!");
-  }else{
-    Serial.println("Started Parameterserver successfully!");
-  }
+    readParamsFromEEPROM();
+    server = new uavcan::ParamServer(*node);
+    const int server_start_res = server->start(&param_manager);
+    if (server_start_res < 0)
+    {
+        Serial.println("Failed to start ParamServer!");
+    }
+    else
+    {
+        Serial.println("Started Parameterserver successfully!");
+    }
 }
 
 #endif

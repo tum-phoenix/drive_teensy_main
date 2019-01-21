@@ -8,11 +8,14 @@
 
 #include "DJI.h"
 
+// general
+uint8_t arm_state = 0;
+
 // CAN Node settings
 static constexpr uint32_t nodeID = 102;
 static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
-static const char* nodeName = "org.phoenix.dji";
+static const char *nodeName = "org.phoenix.dji";
 
 // application settings
 static constexpr float framerate = 1000;
@@ -32,13 +35,13 @@ MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CELL2_PIN A11
 #define CELL1_PIN A10
 #define CELL4_PIN A0
-#define CURR_PIN  A1
+#define CURR_PIN A1
 #define BAT_V_THRESH 0.5
 #define CELL_R1 14000.0
 #define CELL_R2 2000.0
 #define BAT_V_THRESH 0.5
 #define A_REF 3.3
-#define CURR_FACTOR 0.00161133/4 // 0R01 + 200V/V
+#define CURR_FACTOR 0.00161133 / 4 // 0R01 + 200V/V
 #define V_ALM_FINAL 3.0
 
 // buzzer
@@ -73,7 +76,7 @@ uint8_t steering_servo_4_pin = 20;
 
 // motor target misc
 uint32_t last_motor_target_receive = 0;
-#define MOTOR_COM_TIMEOUT 500             // max accepted time between motor commands in ms
+#define MOTOR_COM_TIMEOUT 500 // max accepted time between motor commands in ms
 
 // Pepperl+Fuchs / parallel parking
 #define PF_LS_PIN 13
@@ -84,24 +87,26 @@ int par_lot_update_rate = 50;
 MonotonicTime last_par_lot_update = MonotonicTime::fromMSec(0);
 
 // odometry
-typedef struct {
-  int32_t dist_trav;  // mm
-  int16_t speed;      // mm/s
+typedef struct
+{
+  int32_t dist_trav; // mm
+  int16_t speed;     // mm/s
 } odometry_t;
 odometry_t rear;
 
 void v_veh();
 void buzzer_routine();
-bool check_arm_state();
+uint8_t check_arm_state();
 
 #include "Publisher.h"
 #include "Subscriber.h"
 
-void setup() {
-  pinMode(BUZZER_PIN,OUTPUT);
-  digitalWrite(BUZZER_PIN,1);
+void setup()
+{
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, 1);
   // setup UART port for vesc
-  
+
   Serial1.begin(230400);
   Serial3.begin(230400);
   SetSerialPort(&Serial1, &Serial3);
@@ -114,7 +119,7 @@ void setup() {
 
   // Pepperl+Fuchs
   //RISING/HIGH/CHANGE/LOW/FALLING
-  attachInterrupt (PF_LS_PIN, pf_ir_routine, CHANGE);
+  attachInterrupt(PF_LS_PIN, pf_ir_routine, CHANGE);
 
   // init LEDs
   initLeds();
@@ -143,18 +148,17 @@ void setup() {
   // setup DJI remote
   dji.begin(&Serial2);
 
-  digitalWrite(BUZZER_PIN,0);
+  digitalWrite(BUZZER_PIN, 0);
 
   // setup servos for steering
   steering_servo_3.attach(steering_servo_3_pin);
   steering_servo_4.attach(steering_servo_4_pin);
   steering_servo_offset_3 = configuration.steeringOff_RL + 90;
   steering_servo_offset_4 = configuration.steeringOff_RR + 90;
-  
-
 }
 
-void loop() {
+void loop()
+{
 
   // wait in cycle
   cycleWait(framerate);
@@ -170,53 +174,52 @@ void loop() {
 
   buzzer_routine();
 
-  if (millis() - last_motor_target_receive > MOTOR_COM_TIMEOUT) {
+  if (millis() - last_motor_target_receive > MOTOR_COM_TIMEOUT)
+  {
     VescUartSetCurrent(0, 0);
     VescUartSetCurrent(0, 1);
   }
-  
 }
 
-void v_veh() {
-  float mean_rounds = ((float)measuredVal_motor3.rpm + (float)measuredVal_motor4.rpm)/14; // RPM
-  mean_rounds /= 60; // RPS
-  vveh = mean_rounds * 2 * M_PI * WHEEL_RADIUS_M; // m/s;
+void v_veh()
+{
+  float mean_rounds = ((float)measuredVal_motor3.rpm + (float)measuredVal_motor4.rpm) / 14; // RPM
+  mean_rounds /= 60;                                                                        // RPS
+  vveh = mean_rounds * 2 * M_PI * WHEEL_RADIUS_M;                                           // m/s;
 }
 
-void buzzer_routine() {
-  if (bat_alm) {
-    if(last_buzzer_update +
-      MonotonicDuration::fromMSec(1000/(float)buzzer_beep_rate) <
-      systemClock->getMonotonic())
-   {
+void buzzer_routine()
+{
+  if (bat_alm)
+  {
+    if (last_buzzer_update +
+            MonotonicDuration::fromMSec(1000 / (float)buzzer_beep_rate) <
+        systemClock->getMonotonic())
+    {
       last_buzzer_update = systemClock->getMonotonic();
-      static uint8_t buzzer_mode=0;
+      static uint8_t buzzer_mode = 0;
       buzzer_mode ^= 1;
-      digitalWrite(BUZZER_PIN,buzzer_mode);
-   }
+      digitalWrite(BUZZER_PIN, buzzer_mode);
+    }
   }
 }
 
-bool check_arm_state() {
-  // TODO
-  return true;
-}
-
-bool button_pressed(uint8_t pos) {
-  if (bitwise_buttons >> pos && 1) {
+uint8_t check_arm_state()
+{
+  if (arm_state == RemoteControl::AUX_MODE_CENTER || arm_state == RemoteControl::AUX_MODE_UP)
+  {
+    if (!steering_servo_3.attached() || !steering_servo_4.attached())
+    {
+      // setup servos for steering
+      steering_servo_3.attach(steering_servo_3_pin);
+      steering_servo_4.attach(steering_servo_4_pin);
+    }
     return true;
-  } else {
-    return false;
   }
-}
-
-bool buttonrise(uint8_t pos) {
-  static bool cur_state[5] = {0,0,0,0,0};
-  static bool last_state[5] = {0,0,0,0,0};
-  cur_state[pos] = button_pressed(pos);
-  if(cur_state[pos] && !last_state[pos]) {
-    return true;
-  } else {
+  else
+  {
+    steering_servo_3.detach();
+    steering_servo_4.detach();
     return false;
   }
 }

@@ -1,5 +1,5 @@
-#ifndef	PUBLISHER_H
-#define	PUBLISHER_H
+#ifndef PUBLISHER_H
+#define PUBLISHER_H
 
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/RemoteControl.hpp"
@@ -18,13 +18,12 @@ using namespace phoenix_msgs;
 // we want to publish the rc readings from dji via a RemoteControl Messages
 // we want to publish the state of the two motors via two MotorState Messages
 
-
 // filters out changes faster that 5 Hz.
 float filterFrequency = 5.0;
 
 // create a one pole (RC) lowpass filter
-FilterOnePole lowpassFilterFront(LOWPASS, filterFrequency); 
-FilterOnePole lowpassFilterRear(LOWPASS, filterFrequency); 
+FilterOnePole lowpassFilterFront(LOWPASS, filterFrequency);
+FilterOnePole lowpassFilterRear(LOWPASS, filterFrequency);
 
 // publisher
 Publisher<RemoteControl> *rc_Publisher;
@@ -48,23 +47,23 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   user_buttons_Publisher = new Publisher<UserButtons>(*node);
 
   // initiliaze publishers
-  if(rc_Publisher->init() < 0)
+  if (rc_Publisher->init() < 0)
   {
     Serial.println("Unable to initialize rc_Publisher!");
   }
-  if(motor_state_Publisher->init() < 0)
+  if (motor_state_Publisher->init() < 0)
   {
     Serial.println("Unable to initialize motor_state_Publisher!");
-  }  
-  if(power_Publisher->init() < 0)
+  }
+  if (power_Publisher->init() < 0)
   {
     Serial.println("Unable to initialize power_Publisher!");
   }
-  if(ppark_Publisher->init() < 0)
+  if (ppark_Publisher->init() < 0)
   {
     Serial.println("Unable to initialize ppark_Publisher!");
   }
-  if(user_buttons_Publisher->init() < 0)
+  if (user_buttons_Publisher->init() < 0)
   {
     Serial.println("Unable to initialize user_buttons_Publisher!");
   }
@@ -78,13 +77,13 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
 }
 
 // cycle all publisher
-void cyclePublisher(DJI& dji)
+void cyclePublisher(DJI &dji)
 {
   // Cell Voltages
-   if(last_power_update +
-      MonotonicDuration::fromMSec(1000/(float)power_update_rate) <
+  if (last_power_update +
+          MonotonicDuration::fromMSec(1000 / (float)power_update_rate) <
       systemClock->getMonotonic())
-   {
+  {
     last_power_update = systemClock->getMonotonic();
 
     float V1_raw = analogRead(CELL1_PIN);
@@ -99,131 +98,159 @@ void cyclePublisher(DJI& dji)
     float curr = curr_raw * CURR_FACTOR;
 
     PowerState msg;
-    msg.id= nodeID;
-    msg.v1= V1;
-    msg.v2= V2-V1;
-    msg.v3= V3-V2;
-    msg.v4= V4-V3;
-    msg.main_voltage = V4; 
+    msg.id = nodeID;
+    msg.v1 = V1;
+    msg.v2 = V2 - V1;
+    msg.v3 = V3 - V2;
+    msg.v4 = V4 - V3;
+    msg.main_voltage = V4;
     msg.main_current = curr;
-    if (msg.v1 < V_ALM_FINAL || msg.v2 < V_ALM_FINAL || msg.v3 < V_ALM_FINAL || msg.v4 < V_ALM_FINAL) bat_alm = 1;
-    if (msg.v1 < BAT_V_THRESH || msg.v2 < BAT_V_THRESH || msg.v3 < BAT_V_THRESH|| msg.v4 < BAT_V_THRESH) bat_alm = 0;
-    setRGBled(0,255,0);
-    if (msg.v1 < 3.9 || msg.v2 < 3.9 || msg.v3 < 3.9 || msg.v4 < 3.9) setRGBled(255,255,0);
-    if (msg.v1 < 3.3 || msg.v2 < 3.3 || msg.v3 < 3.3 || msg.v4 < 3.3) setRGBled(255,0,0);
+    if (msg.v1 < V_ALM_FINAL || msg.v2 < V_ALM_FINAL || msg.v3 < V_ALM_FINAL || msg.v4 < V_ALM_FINAL)
+      bat_alm = 1;
+    if (msg.v1 < BAT_V_THRESH || msg.v2 < BAT_V_THRESH || msg.v3 < BAT_V_THRESH || msg.v4 < BAT_V_THRESH)
+      bat_alm = 0;
+    setRGBled(0, 255, 0);
+    if (msg.v1 < 3.9 || msg.v2 < 3.9 || msg.v3 < 3.9 || msg.v4 < 3.9)
+      setRGBled(255, 255, 0);
+    if (msg.v1 < 3.3 || msg.v2 < 3.3 || msg.v3 < 3.3 || msg.v4 < 3.3)
+      setRGBled(255, 0, 0);
     const int pres = power_Publisher->broadcast(msg);
     if (pres < 0)
     {
       Serial.println("Error while broadcasting power state");
-    } else {
+    }
+    else
+    {
       digitalWrite(trafficLedPin, HIGH);
     }
-   }
+  }
 
-   // motor state update -> at motor_state_update_rate -> check time first
-   if(last_motor_state_update +
-      MonotonicDuration::fromMSec(1000/(float)motor_state_update_rate) <
+  // motor state update -> at motor_state_update_rate -> check time first
+  if (last_motor_state_update +
+          MonotonicDuration::fromMSec(1000 / (float)motor_state_update_rate) <
       systemClock->getMonotonic())
-   {
-     
+  {
+
     static uint32_t lastupdate = 0;
     static uint32_t thisupdate = 0;
     lastupdate = thisupdate;
     thisupdate = micros();
 
-     // it is time for an update of motor states
-     last_motor_state_update = systemClock->getMonotonic();
-
-     // update motor 3 information
-     if (VescUartGetValue(measuredVal_motor3, 0)) { 
-   		MotorState msg;
-       msg.position      = motor3_position;
-       msg.temp_fet      = measuredVal_motor3.tempFetFiltered;
-       msg.motor_current = measuredVal_motor3.avgMotorCurrent;
-       msg.input_current = measuredVal_motor3.avgInputCurrent;
-       msg.input_voltage = measuredVal_motor3.inpVoltage;
-       msg.rpm           = measuredVal_motor3.rpm;
-       msg.fault_code    = measuredVal_motor3.faultCode;
-       const int pres = motor_state_Publisher->broadcast(msg);
-       if (pres < 0)
-       {
-         Serial.println("Error while broadcasting motor 3 state");
-       } else {
-         digitalWrite(trafficLedPin, HIGH);
-       }
-   	}
-   	else
-   	{
-   		//Serial.println("Failed to get motor 3 data!");
-   	}
-
-     // update motor 4 information
-     if (VescUartGetValue(measuredVal_motor4, 1)) {
-   		MotorState msg;
-       msg.position      = motor4_position;
-       msg.temp_fet      = measuredVal_motor4.tempFetFiltered;
-       msg.motor_current = measuredVal_motor4.avgMotorCurrent;
-       msg.input_current = measuredVal_motor4.avgInputCurrent;
-       msg.input_voltage = measuredVal_motor4.inpVoltage;
-       msg.rpm           = measuredVal_motor4.rpm;
-       msg.fault_code    = measuredVal_motor4.faultCode;
-       const int pres = motor_state_Publisher->broadcast(msg);
-       if (pres < 0)
-       {
-         Serial.println("Error while broadcasting motor 4 state");
-       } else {
-         digitalWrite(trafficLedPin, HIGH);
-       }
-   	}
-   	else
-   	{
-   		//Serial.println("Failed to get motor 4 data!");
-   	}
-    
-    #define WHEEL_RADIUS_M 0.033
-    float mean_rounds = ((float)measuredVal_motor3.rpm + (float)measuredVal_motor4.rpm)/14; // RPM
-    mean_rounds /= 60; // RPS
-    rear.speed = (uint32_t)(mean_rounds * 2000 * M_PI * WHEEL_RADIUS_M); // mm/s;
-    uint32_t dt = thisupdate-lastupdate; // micros
-    float ds = (rear.speed * dt)/1000000; // mm
-    float temp = (float)rear.dist_trav + ds;
-    rear.dist_trav = (uint32_t)temp;
+    // it is time for an update of motor states
+    last_motor_state_update = systemClock->getMonotonic();
 
     vesc_send_status_request(0);
     vesc_send_status_request(1);
+    delayMicroseconds(4000); // wait for the answer of the two motors. is dirty but works fine for the workload of this controller
+    // update motor 3 information
+    if (VescUartGetValue(measuredVal_motor3, 0))
+    {
+      MotorState msg;
+      msg.position = motor3_position;
+      msg.temp_fet = measuredVal_motor3.tempFetFiltered;
+      msg.motor_current = measuredVal_motor3.avgMotorCurrent;
+      msg.input_current = measuredVal_motor3.avgInputCurrent;
+      msg.input_voltage = measuredVal_motor3.inpVoltage;
+      msg.rpm = measuredVal_motor3.rpm;
+      msg.fault_code = measuredVal_motor3.faultCode;
+      const int pres = motor_state_Publisher->broadcast(msg);
+      if (pres < 0)
+      {
+        Serial.println("Error while broadcasting motor 3 state");
+      }
+      else
+      {
+        digitalWrite(trafficLedPin, HIGH);
+      }
+    }
+    else
+    {
+      //Serial.println("Failed to get motor 3 data!");
+    }
 
+    // update motor 4 information
+    if (VescUartGetValue(measuredVal_motor4, 1))
+    {
+      MotorState msg;
+      msg.position = motor4_position;
+      msg.temp_fet = measuredVal_motor4.tempFetFiltered;
+      msg.motor_current = measuredVal_motor4.avgMotorCurrent;
+      msg.input_current = measuredVal_motor4.avgInputCurrent;
+      msg.input_voltage = measuredVal_motor4.inpVoltage;
+      msg.rpm = measuredVal_motor4.rpm;
+      msg.fault_code = measuredVal_motor4.faultCode;
+      const int pres = motor_state_Publisher->broadcast(msg);
+      if (pres < 0)
+      {
+        Serial.println("Error while broadcasting motor 4 state");
+      }
+      else
+      {
+        digitalWrite(trafficLedPin, HIGH);
+      }
+    }
+    else
+    {
+      //Serial.println("Failed to get motor 4 data!");
+    }
+
+#define WHEEL_RADIUS_M 0.033
+    float mean_rounds = ((float)measuredVal_motor3.rpm + (float)measuredVal_motor4.rpm) / 14; // RPM
+    mean_rounds /= 60;                                                                        // RPS
+    rear.speed = (uint32_t)(mean_rounds * 2000 * M_PI * WHEEL_RADIUS_M);                      // mm/s;
+    uint32_t dt = thisupdate - lastupdate;                                                    // micros
+    float ds = (rear.speed * dt) / 1000000;                                                   // mm
+    float temp = (float)rear.dist_trav + ds;
+    rear.dist_trav = (uint32_t)temp;
   }
 
   // remote control update -> at rc_update_rate -> check time first
-  if(last_rc_update +
-     MonotonicDuration::fromMSec(1000/(float)rc_update_rate) <
-     systemClock->getMonotonic())
+  if (last_rc_update +
+          MonotonicDuration::fromMSec(1000 / (float)rc_update_rate) <
+      systemClock->getMonotonic())
   {
     // it is time for an update of the rc readings
     last_rc_update = systemClock->getMonotonic();
 
     // update dji remote control readings
-    if(dji.read()) {
+    if (dji.read())
+    {
       static RemoteControl msg;
 
       // left switch - drive mode select
-      switch(dji.leftSwitch())
+      switch (dji.leftSwitch())
       {
-        case DJI::DOWN:   msg.drive_mode = RemoteControl::DRIVE_MODE_MANUAL; break;
-        case DJI::MIDDLE: msg.drive_mode = RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS; break;
-        case DJI::UP:     msg.drive_mode = RemoteControl::DRIVE_MODE_AUTONOMOUS; break;
-        default:          msg.drive_mode = RemoteControl::DRIVE_MODE_RC_DISCONNECTED; break;
+      case DJI::DOWN:
+        msg.drive_mode = RemoteControl::DRIVE_MODE_MANUAL;
+        break;
+      case DJI::MIDDLE:
+        msg.drive_mode = RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS;
+        break;
+      case DJI::UP:
+        msg.drive_mode = RemoteControl::DRIVE_MODE_AUTONOMOUS;
+        break;
+      default:
+        msg.drive_mode = RemoteControl::DRIVE_MODE_RC_DISCONNECTED;
+        break;
       }
 
       // right switch - aux mode select
-      switch(dji.rightSwitch())
+      switch (dji.rightSwitch())
       {
-        case DJI::DOWN:   msg.aux_mode = RemoteControl::AUX_MODE_UP; break;
-        case DJI::MIDDLE: msg.aux_mode = RemoteControl::AUX_MODE_CENTER; break;
-        case DJI::UP:     msg.aux_mode = RemoteControl::AUX_MODE_DOWN; break;
-        default:          msg.aux_mode = RemoteControl::AUX_MODE_RC_DISCONNECTED; break;
+      case DJI::DOWN:
+        msg.aux_mode = RemoteControl::AUX_MODE_DOWN;
+        break;
+      case DJI::MIDDLE:
+        msg.aux_mode = RemoteControl::AUX_MODE_CENTER;
+        break;
+      case DJI::UP:
+        msg.aux_mode = RemoteControl::AUX_MODE_UP;
+        break;
+      default:
+        msg.aux_mode = RemoteControl::AUX_MODE_RC_DISCONNECTED;
+        break;
       }
-
+      arm_state = msg.aux_mode;
       // left stick - up/down - target velocity
       msg.velocity = dji.leftVerticalStick(msg.velocity);
 
@@ -233,41 +260,45 @@ void cyclePublisher(DJI& dji)
       // left stick - left/right - steering rear
       lowpassFilterRear.input(dji.leftHorizontalStick(msg.steer_rear));
       msg.steer_rear = lowpassFilterRear.output();
-      
 
       // right stick - left/right - front rear
       float temp = msg.steer_front;
-      if (abs(temp-dji.rightHorizontalStick(msg.steer_front))<0.4){
+      if (abs(temp - dji.rightHorizontalStick(msg.steer_front)) < 0.4)
+      {
         lowpassFilterFront.input(dji.rightHorizontalStick(msg.steer_front));
         msg.steer_front = lowpassFilterFront.output();
-      } else {
+      }
+      else
+      {
         msg.steer_front = temp;
       }
       const int pres = rc_Publisher->broadcast(msg);
       if (pres < 0)
       {
-      //  Serial.println("Error while broadcasting rc message");
-      } else {
+        //  Serial.println("Error while broadcasting rc message");
+      }
+      else
+      {
         digitalWrite(trafficLedPin, HIGH);
       }
     }
   }
 
   // buttons
-  if(last_button_update +
-    MonotonicDuration::fromMSec(1000/(float)button_update_rate) <
-    systemClock->getMonotonic())
+  if (last_button_update +
+          MonotonicDuration::fromMSec(1000 / (float)button_update_rate) <
+      systemClock->getMonotonic())
   {
     // it is time for an update of the button readings
     last_button_update = systemClock->getMonotonic();
     analogReadRes(12);
     analogReadAveraging(10);
-    #define R0 16
+#define R0 16
     float raw = analogRead(BUTTON_PIN);
-    float r = raw/4096.0;
-    r = 1-r;
-    r = R0/r;
-    r = r-R0;
+    float r = raw / 4096.0;
+    r = 1 - r;
+    r = R0 / r;
+    r = r - R0;
     r = round(r);
     bitwise_buttons = (uint8_t)r ^ 0x1F; // invert bits for bitwise results
     //Serial.print(raw);
@@ -285,47 +316,54 @@ void cyclePublisher(DJI& dji)
     if (pres < 0)
     {
       Serial.println("Error while broadcasting button message");
-    } else {
+    }
+    else
+    {
       digitalWrite(trafficLedPin, HIGH);
     }
   }
 
   // parking lot
-    if((publish_lot_msg == 10 || last_par_lot_update +
-      MonotonicDuration::fromMSec(1000/(float)par_lot_update_rate) <
-      systemClock->getMonotonic()) && publish_lot_msg > 0)
+  if ((publish_lot_msg == 10 || last_par_lot_update +
+                                        MonotonicDuration::fromMSec(1000 / (float)par_lot_update_rate) <
+                                    systemClock->getMonotonic()) &&
+      publish_lot_msg > 0)
+  {
+    // it is time for an update of the parking lot readings
+    last_par_lot_update = systemClock->getMonotonic();
+
+    ParallelParking msg;
+    msg.lot_size = lot_size;
+    msg.dist_to_lot = rear.dist_trav - last_lot_pos;
+
+    const int pres = ppark_Publisher->broadcast(msg);
+    if (pres < 0)
     {
-      // it is time for an update of the parking lot readings
-      last_par_lot_update = systemClock->getMonotonic();
-
-      ParallelParking msg;
-      msg.lot_size = lot_size;
-      msg.dist_to_lot = rear.dist_trav - last_lot_pos;
-
-      const int pres = ppark_Publisher->broadcast(msg);
-      if (pres < 0)
-      {
-        Serial.println("Error while broadcasting parking message");
-      } else {
-        digitalWrite(trafficLedPin, HIGH);
-      }
-      publish_lot_msg --;
+      Serial.println("Error while broadcasting parking message");
     }
+    else
+    {
+      digitalWrite(trafficLedPin, HIGH);
+    }
+    publish_lot_msg--;
+  }
 }
-
 
 #endif
 
-
-void pf_ir_routine() {
+void pf_ir_routine()
+{
   static int32_t start_odom;
   int32_t pos = rear.dist_trav;
   uint8_t state = digitalRead(PF_LS_PIN);
   sei();
-  if (state == HIGH) {
+  if (state == HIGH)
+  {
     start_odom = pos;
     //setRGBled(0,0,255);
-  } else {
+  }
+  else
+  {
     lot_size = pos - start_odom;
     last_lot_pos = pos;
     publish_lot_msg = 10;
