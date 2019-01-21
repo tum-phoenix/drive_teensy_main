@@ -8,19 +8,16 @@
 static constexpr uint32_t nodeID = 110;
 static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
-static const char* nodeName = "org.phoenix.example35_node";
-
+static const char *nodeName = "org.phoenix.example35_node";
 
 // application framerate
 static constexpr float framerate = 1000;
-
 
 void setup()
 {
   delay(3000);
   Serial.begin(115200);
   Serial.println("Setup");
-
 
   // Create a node
   systemClock = &initSystemClock();
@@ -46,8 +43,6 @@ void setup()
   Serial.println("Setup Finished");
 }
 
-
-
 void loop()
 {
   // wait in cycle
@@ -58,5 +53,4 @@ void loop()
 
   // publish messages
   cyclePublisher(50);
-
 }

@@ -1,5 +1,5 @@
-#ifndef	PUBLISHER_HPP
-#define	PUBLISHER_HPP
+#ifndef PUBLISHER_HPP
+#define PUBLISHER_HPP
 
 #include <uavcan/uavcan.hpp>
 #include <uavcan/protocol/debug/KeyValue.hpp>
@@ -10,14 +10,13 @@ using namespace uavcan;
 // publisher
 Publisher<protocol::debug::KeyValue> *keyPublisher;
 
-
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
   // create publishers
   keyPublisher = new Publisher<protocol::debug::KeyValue>(*node);
 
   // initiliaze publishers
-  if(keyPublisher->init() < 0)
+  if (keyPublisher->init() < 0)
   {
     Serial.println("Unable to initialize key message publisher!");
   }
@@ -32,7 +31,7 @@ MonotonicTime lastPub = MonotonicTime::fromMSec(0);
 void cyclePublisher(const int pubFreq)
 {
   // send everyone the truth
-  if(lastPub + MonotonicDuration::fromMSec(1000/(float)pubFreq) < systemClock->getMonotonic())
+  if (lastPub + MonotonicDuration::fromMSec(1000 / (float)pubFreq) < systemClock->getMonotonic())
   {
     {
       protocol::debug::KeyValue msg;
@@ -52,6 +51,5 @@ void cyclePublisher(const int pubFreq)
     lastPub = systemClock->getMonotonic();
   }
 }
-
 
 #endif
