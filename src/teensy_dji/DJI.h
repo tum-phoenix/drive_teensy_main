@@ -8,7 +8,6 @@ class DJI
 {
 
 public:
-
   enum switchState
   {
     UNKNOWN = 0,
@@ -18,16 +17,15 @@ public:
   };
 
   // constructor
-  DJI(HardwareSerial& bus): sbus(bus)
+  DJI(HardwareSerial &bus) : sbus(bus)
   {
-
   }
 
-  static HardwareSerial* serialPort1;
+  static HardwareSerial *serialPort1;
   // begin
-  void begin(HardwareSerial* _serialPort1)
+  void begin(HardwareSerial *_serialPort1)
   {
-    _serialPort1->begin(100000,SERIAL_8E1_RXINV_TXINV);
+    _serialPort1->begin(100000, SERIAL_8E2_RXINV_TXINV);  // do not use SBUS.begin() since it initializes the port on the teensy wrong!!
   }
 
   // read data from DJI remote
@@ -45,10 +43,13 @@ public:
   // returns left vertical stick values between -1 and 1
   float leftVerticalStick(float last_value)
   {
-    float helpVar=(float(channels[1])-1024)/660;
-    if (abs(helpVar)<1.01) {
+    float helpVar = (float(channels[1]) - 1024) / 660;
+    if (abs(helpVar) < 1.01)
+    {
       return helpVar;
-    } else {
+    }
+    else
+    {
       return last_value;
     }
   }
@@ -56,10 +57,13 @@ public:
   // returns left horizontal stick values between -1 and 1
   float leftHorizontalStick(float last_value)
   {
-    float helpVar=(float(channels[3])-1024)/660;
-    if (abs(helpVar)<1.01) {
+    float helpVar = (float(channels[3]) - 1024) / 660;
+    if (abs(helpVar) < 1.01)
+    {
       return helpVar;
-    } else {
+    }
+    else
+    {
       return last_value;
     }
   }
@@ -67,10 +71,13 @@ public:
   // returns right vertical stick values between -1 and 1
   float rightVerticalStick(float last_value)
   {
-    float helpVar=(float(channels[2])-1024)/660;
-    if (abs(helpVar)<1.01) {
+    float helpVar = (float(channels[2]) - 1024) / 660;
+    if (abs(helpVar) < 1.01)
+    {
       return helpVar;
-    } else {
+    }
+    else
+    {
       return last_value;
     }
   }
@@ -78,10 +85,13 @@ public:
   // returns right horizontal stick values between -1 and 1
   float rightHorizontalStick(float last_value)
   {
-    float helpVar=(float(channels[0])-1024)/660;
-    if (abs(helpVar)<1.01) {
+    float helpVar = (float(channels[0]) - 1024) / 660;
+    if (abs(helpVar) < 1.01)
+    {
       return helpVar;
-    } else {
+    }
+    else
+    {
       return last_value;
     }
   }
@@ -91,9 +101,15 @@ public:
   {
     switch (channels[6])
     {
-      case 1541: return UP; break;
-      case 1024: return MIDDLE; break;
-      case 511: return DOWN; break;
+    case 1541:
+      return UP;
+      break;
+    case 1024:
+      return MIDDLE;
+      break;
+    case 511:
+      return DOWN;
+      break;
     }
     return UNKNOWN;
   }
@@ -103,20 +119,24 @@ public:
   {
     switch (channels[5])
     {
-      case 1541: return UP; break;
-      case 1024: return MIDDLE; break;
-      case 511: return DOWN; break;
+    case 1541:
+      return UP;
+      break;
+    case 1024:
+      return MIDDLE;
+      break;
+    case 511:
+      return DOWN;
+      break;
     }
     return UNKNOWN;
   }
 
 private:
-  SBUS sbus;                // SBUS interface
-  uint8_t failSafe;         // ??
-  uint16_t lostFrames = 0;  // number of lost frames
-  uint16_t channels[16];    // current data
-
+  SBUS sbus;               // SBUS interface
+  uint8_t failSafe;        // ??
+  uint16_t lostFrames = 0; // number of lost frames
+  uint16_t channels[16];   // current data
 };
-
 
 #endif
