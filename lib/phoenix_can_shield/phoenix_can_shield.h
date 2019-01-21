@@ -220,7 +220,7 @@ void cycleWait(const float framerate)
 
   MonotonicTime newTime = systemClock->getMonotonic();
   MonotonicDuration diff = newTime - oldTime;
-  delay(1000/(float)framerate - (diff.toUSec())/(float)1000);
+  delayMicroseconds((uint32_t)(1000000./(float)framerate - diff.toUSec()));
   oldTime = systemClock->getMonotonic();
 }
 
