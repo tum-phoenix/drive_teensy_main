@@ -20,12 +20,11 @@ public:
   DJI(HardwareSerial &bus) : sbus(bus)
   {
   }
-
-  static HardwareSerial *serialPort1;
+  
   // begin
-  void begin(HardwareSerial *_serialPort1)
+  void begin()
   {
-    _serialPort1->begin(100000, SERIAL_8E2_RXINV_TXINV);  // do not use SBUS.begin() since it initializes the port on the teensy wrong!!
+    sbus.begin();
   }
 
   // read data from DJI remote

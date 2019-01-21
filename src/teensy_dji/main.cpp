@@ -146,7 +146,7 @@ void setup()
   node->setModeOperational();
 
   // setup DJI remote
-  dji.begin(&Serial2);
+  dji.begin();
 
   digitalWrite(BUZZER_PIN, 0);
 
