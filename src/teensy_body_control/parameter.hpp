@@ -12,12 +12,13 @@ static constexpr uint8_t param_start_addr = 0;
 // parameter storage with default values
 static struct Params
 {
-    float maxSpeed = 5;
-    float maxMotorAmps = 5;
-    float speedKp = 100;
+    float maxSpeed = 2;
+    float maxMotorAmps = 15;
+    float speedKp = 20;
     float speedKi = 0.0;
-    float speedKd = 0.1;
-    float tvFactor = 0.5;
+    float speedKd = 0.0;
+    float tvFactor = 0.4;
+    float accFactor = 0.2;
     float steeringOff_FL = 0;
     float steeringOff_FR = 0;
 } configuration;
@@ -66,12 +67,15 @@ class : public uavcan::IParamManager
         if (index == 5)
         {
             out_name = "tvFactor[-]";
+        }if (index == 6)
+        {
+            out_name = "accFactor[-]";
         }
-        if (index == 6)
+        if (index == 7)
         {
             out_name = "Servo Offset FL [deg]";
         }
-        if (index == 7)
+        if (index == 8)
         {
             out_name = "Servo Offset FR [deg]";
         }
@@ -134,6 +138,15 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.tvFactor);
             }
         }
+        else if (name == "accFactor[-]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.accFactor = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed accFactor[-] to: ");
+                Serial.println(configuration.accFactor);
+            }
+        }
         else if (name == "Servo Offset FL [deg]")
         {
             if (value.is(uavcan::protocol::param::Value::Tag::real_value))
@@ -183,6 +196,10 @@ class : public uavcan::IParamManager
         else if (name == "tvFactor[-]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.tvFactor;
+        }
+        else if (name == "accFactor[-]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.accFactor;
         }
         else if (name == "Servo Offset FL [deg]")
         {
@@ -252,6 +269,12 @@ class : public uavcan::IParamManager
         else if (name == "tvFactor[-]")
         {
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().tvFactor;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
+        }
+        else if (name == "accFactor[-]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().accFactor;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
         }
