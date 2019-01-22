@@ -57,6 +57,8 @@ static struct actor_comm_t
   float steer_angles[2] = {0, 0};
 } actor_comms;
 
+bool breaking = false;
+
 bldcMeasure measuredVal_motor[4];
 
 // Power
@@ -71,7 +73,7 @@ MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 Adafruit_BNO055 bno055 = Adafruit_BNO055();
 
 // servos for steering
-PWMServo steering_servo[2];
+PWM_T32 steering_servo[2];
 float steering_servo_position[2];
 float steering_servo_offset[2] = {98, 92};
 uint8_t steering_servo_pin[2] = {10, 9};
@@ -79,24 +81,28 @@ uint8_t steering_servo_pin[2] = {10, 9};
 #define MAX_STEER_SERVO_INNER 48  // absolute max 50° -> 37° wheel
 #define MAX_STEER_SERVO_OUTER 35  // absolute max 40° -> 37° wheel
 
-/*
 // lights
-#define OFF_PPM 1000
-#define ON_PPM 2000
-#define AD_PPM 1500
-#define PPM_LIGHT_PIN 5
-enum light_ppm_order {
-  NONE,
-  LIGHT_FRONT,
-  LIGHT_REAR,
-  BREAK,
-  BLINK_LEFT,
-  BLINK_RIGHT,
-  RC_LED
+#define PWM_LIGHT_PIN 5
+#define CLEAR_BIT
+enum light_pwm_order {
+  PWM_NOT_USED0,
+  PWM_NOT_USED1,
+  PWM_NOT_USED2,
+  PWM_NOT_USED3,
+  PWM_NOT_USED4,
+  PWM_OFFSET,
+  PWM_ODD_PARITY0,
+  PWM_ODD_PARITY1,
+  PWM_BLINK_LEFT,
+  PWM_BLINK_RIGHT,
+  PWM_BREAK,
+  PWM_RC_LED,
+  PWM_ARM,
 };
-PulsePositionOutput ppm_light;
-*/
+uint16_t pwm_register = B01100000;  // initialize offset bit and odd-parity bit
+PWM_T32 lights_pwm;
 
+// routine header
 float calc_speed_pid();
 void dynamics_control();
 void vesc_command();
@@ -105,6 +111,7 @@ void calc_steer(float *);
 void steer_angle_distribution(float *);
 float v_veh();
 void servo_command();
+void process_lights();
 
 #include "Publisher.h"
 #include "Subscriber.h"
@@ -168,6 +175,10 @@ void setup()
 
   steering_servo[FRONT_LEFT].attach(steering_servo_pin[FRONT_LEFT]);
   steering_servo[FRONT_RIGHT].attach(steering_servo_pin[FRONT_RIGHT]);
+
+  // lights
+  lights_pwm.attach(PWM_LIGHT_PIN);
+  lights_pwm.writeMicros(pwm_register);
 }
 
 imu_t bno_data;
@@ -189,7 +200,7 @@ void loop()
   // request vesc status
   vesc_send_status_request(0);
   vesc_send_status_request(1);
-  delayMicroseconds(3900); // wait, so the esc has time to answer, even when the cycle time is too high
+  delayMicroseconds(3800); // wait, so the esc has time to answer, even when the cycle time is too high
   cycleWait(framerate);
   t_ = micros();
 
@@ -244,28 +255,52 @@ void loop()
 
   // toggle heartbeat
   toggleHeartBeat();
-  /*
   // update LED command
-  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL && check_arm_state()) {
-    ppm_light.write(RC_LED, ON_PPM);
-  } else if (check_arm_state()) {
-    ppm_light.write(RC_LED, OFF_PPM);
+
+  process_lights();
+  cyclePublisher_Drive_State(v_veh(), actor_comms.steer_angles[0], actor_comms.steer_angles[1]);
+}
+
+void process_lights() {
+  // initialize offset bit and odd-parity bit
+  pwm_register = B01100000;
+
+  // set all relevant bits in the light command register
+  uint8_t parity_count = 0;
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS) {
+    bitSet(pwm_register, PWM_RC_LED);
+    parity_count ++;
   }
-  else {
-    ppm_light.write(RC_LED, AD_PPM);
+  if (check_arm_state()) {
+    bitSet(pwm_register, PWM_ARM);
+    parity_count++;
   }
   if (NUC_drive_coms.blink == 1 || NUC_drive_coms.blink == 3) {
-    ppm_light.write(BLINK_LEFT,ON_PPM);
-  } else {
-    ppm_light.write(BLINK_LEFT,OFF_PPM);
+    bitSet(pwm_register, PWM_BLINK_LEFT);
+    parity_count++;
   }
   if (NUC_drive_coms.blink == 2 || NUC_drive_coms.blink == 3) {
-    ppm_light.write(BLINK_RIGHT,ON_PPM);
-  } else {
-    ppm_light.write(BLINK_RIGHT,OFF_PPM);
+    bitSet(pwm_register, PWM_BLINK_RIGHT);
+    parity_count++;
   }
-  */
-  cyclePublisher_Drive_State(v_veh(), actor_comms.steer_angles[0], actor_comms.steer_angles[1]);
+  if (NUC_drive_coms.blink == 2 || NUC_drive_coms.blink == 3) {
+    bitSet(pwm_register, PWM_BLINK_RIGHT);
+    parity_count++;
+  }
+  if (breaking) {
+    bitSet(pwm_register, PWM_BREAK);
+    parity_count++;
+  }
+
+  // calculate odd-parity
+  if (parity_count % 2 == 1) {
+    // odd number of bits allready -> parity bit can be cleared
+    bitClear(pwm_register, PWM_ODD_PARITY0);
+  }
+  bitClear(pwm_register, PWM_ODD_PARITY1); // allways 0 
+
+  // write the light commands
+  lights_pwm.writeMicros(pwm_register);
 }
 
 #define WHEEL_RADIUS_M 0.033
@@ -314,7 +349,7 @@ void dynamics_control()
 
   if (check_arm_state())
   {
-#define ACC_FACTOR 0.3
+  #define ACC_FACTOR 0.3
     float main_amps = calc_speed_pid();
     float steer[4];
     calc_steer(steer); // 4 elements
@@ -329,13 +364,6 @@ void dynamics_control()
     actor_comms.servo_angles[FRONT_RIGHT] = steer[FRONT_RIGHT];
     actor_comms.servo_angles[REAR_LEFT] = steer[REAR_LEFT];
     actor_comms.servo_angles[REAR_RIGHT] = steer[REAR_RIGHT];
-    /*
-    if (sgn(main_amps) != sgn(v_veh()) && abs(main_amps) > 0.5) {
-      ppm_light.write(BREAK, ON_PPM);
-    } else {
-      ppm_light.write(BREAK, OFF_PPM);
-    }
-    */
   }
   else
   {
@@ -354,18 +382,34 @@ void dynamics_control()
 
 void vesc_command()
 {
+  #define BREAK_THRESHOLD 25
+  static uint32_t break_count = 0;
   // break if speed is to reduce. otherwise set accelerating current. helps the controller not to overshoot if lifted for example
   if (abs(speed.v_sp) >= abs(speed.v_is))
   {
     VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT], FRONT_LEFT);
     VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT], FRONT_RIGHT);
+    if (break_count > 0) {
+      break_count--;
+    }
   }
   else
   {
     VescUartSetCurrentBrake(abs(actor_comms.motor_amps[FRONT_LEFT]), FRONT_LEFT);
     VescUartSetCurrentBrake(abs(actor_comms.motor_amps[FRONT_RIGHT]), FRONT_RIGHT);
+    if (break_count < (BREAK_THRESHOLD * 1.5)) {
+      break_count++;
+    }
+  }
+
+  if (break_count > BREAK_THRESHOLD) {
+    breaking = true;
+  }
+  else {
+    breaking = false;
   }
 }
+
 
 void servo_command()
 {
