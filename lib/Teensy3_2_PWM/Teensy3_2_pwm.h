@@ -1,12 +1,12 @@
-#ifndef PWMServo_h
-#define PWMServo_h
+#ifndef PWM_T32_h
+#define PWM_T32_h
 
 /*
-  PWMServo.h - Hardware Servo Timer Library
-  http://arduiniana.org/libraries/pwmservo/
+  PWM_T32.h - Hardware Servo Timer Library
+  http://arduiniana.org/libraries/PWM_T32/
   Author: Jim Studt, jim@federated.com
   Copyright (c) 2007 David A. Mellis.  All right reserved.
-  renamed to PWMServo by Mikal Hart
+  renamed to PWM_T32 by Mikal Hart
   ported to other chips by Paul Stoffregen
 
   This library is free software; you can redistribute it and/or
@@ -29,7 +29,7 @@
 #define SERVO_PIN_A 9
 #define SERVO_PIN_B 10
 
-class PWMServo
+class PWM_T32
 {
   private:
     uint8_t pin;
@@ -38,7 +38,7 @@ class PWMServo
     float max16;       // maximum pulse, 16uS units, 0-4ms range (default is 150)
     static uint32_t attachedpins[]; // 1 bit per digital pin
   public:
-    PWMServo();
+    PWM_T32();
     uint8_t attach(uint8_t pinArg) { return attach(pinArg, 544, 2400); }
                              // pulse length for 0 degrees in microseconds, 544uS default
                              // pulse length for 180 degrees in microseconds, 2400uS default

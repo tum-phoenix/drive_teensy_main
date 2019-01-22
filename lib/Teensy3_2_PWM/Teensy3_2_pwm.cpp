@@ -2,11 +2,11 @@
 #include "Teensy3_2_pwm.h"
 
 /*
-  PWMServo.cpp - Hardware Servo Timer Library
-  http://arduiniana.org/libraries/pwmservo/
+  PWM_T32.cpp - Hardware Servo Timer Library
+  http://arduiniana.org/libraries/PWM_T32/
   Author: Jim Studt, jim@federated.com
   Copyright (c) 2007 David A. Mellis.  All right reserved.
-  renamed to PWMServo by Mikal Hart
+  renamed to PWM_T32 by Mikal Hart
   ported to other chips by Paul Stoffregen
 
   This library is free software; you can redistribute it and/or
@@ -23,16 +23,18 @@
   License along with this library; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#define PWM_FREQUENCY 68.665598535
-#define PWM_RES_BITS 16
-#define US_PRESCALER (PWM_FREQUENCY / 1000000 * ((1 << PWM_RES_BITS) - 1))
+#define PWM_FREQUENCY 68.665598535  // best if this is suitable for 72 MHz prozessor speed
+#define PWM_RES_BITS 16      // analog write resolution. the higher, the preciser the PWM in theory
+
+// US_PRESCALER calculates the actual duty cycle 0-65535 (16 bit resolution) from given microseconds
+#define US_PRESCALER (PWM_FREQUENCY / 1000000 * ((1 << PWM_RES_BITS) - 1)) 
 #define NO_ANGLE (0xff)
 
-uint32_t PWMServo::attachedpins[(NUM_DIGITAL_PINS+31)/32]; // 1 bit per digital pin
+uint32_t PWM_T32::attachedpins[(NUM_DIGITAL_PINS+31)/32]; // 1 bit per digital pin
 
-PWMServo::PWMServo() : pin(255), angle(NO_ANGLE) {}
+PWM_T32::PWM_T32() : pin(255), angle(NO_ANGLE) {}
 
-uint8_t PWMServo::attach(uint8_t pinArg, float min, float max)
+uint8_t PWM_T32::attach(uint8_t pinArg, float min, float max)
 {
 	//Serial.printf("attach, pin=%d, min=%d, max=%d\n", pinArg, min, max);
 	if (pinArg < 0 || pinArg >= NUM_DIGITAL_PINS) return 0;
@@ -48,7 +50,7 @@ uint8_t PWMServo::attach(uint8_t pinArg, float min, float max)
 	return 1;
 }
 
-uint8_t PWMServo::detach()
+uint8_t PWM_T32::detach()
 {
 	//Serial.printf("attach, pin=%d, min=%d, max=%d\n", pinArg, min, max);
 	if (pin < 0 || pin >= NUM_DIGITAL_PINS) return 0;
@@ -58,7 +60,7 @@ uint8_t PWMServo::detach()
 	return 1;
 }
 
-void PWMServo::write(float angleArg)
+void PWM_T32::write(float angleArg)
 {
 	//Serial.printf("write, pin=%d, angle=%d\n", pin, angleArg);
 	if (pin >= NUM_DIGITAL_PINS) return;
@@ -78,7 +80,7 @@ void PWMServo::write(float angleArg)
 #endif
 }
 
-void PWMServo::writeMicros(float Arg)
+void PWM_T32::writeMicros(float Arg)
 {
 	//Serial.printf("write, pin=%d, angle=%d\n", pin, angleArg);
 	if (pin >= NUM_DIGITAL_PINS) return;
@@ -98,7 +100,7 @@ void PWMServo::writeMicros(float Arg)
 #endif
 }
 
-uint8_t PWMServo::attached()
+uint8_t PWM_T32::attached()
 {
 	if (pin >= NUM_DIGITAL_PINS) return 0;
 	return (attachedpins[pin >> 5] & (1 << (pin & 31))) ? 1 : 0;
