@@ -65,8 +65,8 @@ float max_fet_temperature = 80;
 float vveh = 0;
 
 // servos for steering
-PWMServo steering_servo_3;
-PWMServo steering_servo_4;
+PWM_T32 steering_servo_3;
+PWM_T32 steering_servo_4;
 float steering_servo_position_3;
 float steering_servo_position_4;
 float steering_servo_offset_3 = 90;
