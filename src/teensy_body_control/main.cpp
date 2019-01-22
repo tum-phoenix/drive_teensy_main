@@ -4,11 +4,10 @@
 #include <Adafruit_Sensor.h>
 #include <utility/imumaths.h>
 //#include <VescUart.h>
-#include "PWMServo.h"
+#include "Teensy3_2_pwm.h"
 #include "parameter.hpp"
 #include <math.h>
 #include "vuart.h"
-//#include <PulsePosition.h>
 
 // CAN Node settings
 static constexpr uint32_t nodeID = 101;
@@ -76,9 +75,9 @@ PWMServo steering_servo[2];
 float steering_servo_position[2];
 float steering_servo_offset[2] = {98, 92};
 uint8_t steering_servo_pin[2] = {10, 9};
-#define MAX_STEER_ANGLE 32 // degrees
-#define MAX_STEER_SERVO_INNER 50
-#define MAX_STEER_SERVO_OUTER 30
+#define MAX_STEER_ANGLE 34 // degrees
+#define MAX_STEER_SERVO_INNER 48  // absolute max 50° -> 37° wheel
+#define MAX_STEER_SERVO_OUTER 35  // absolute max 40° -> 37° wheel
 
 /*
 // lights

@@ -4,7 +4,7 @@
 #include "vuart.h"
 #include <math.h>
 
-#include "PWMServo.h"
+#include "Teensy3_2_pwm.h"
 
 #include "DJI.h"
 
