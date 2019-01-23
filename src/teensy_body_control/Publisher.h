@@ -179,6 +179,7 @@ void cyclePublisher_Drive_State(float v, float s_f, float s_r)
   msg.v = v;
   msg.steer_f = s_f;
   msg.steer_r = s_r;
+  msg.arm = check_arm_state();
   if (drive_Publisher->broadcast(msg) < 0)
   {
     Serial.println("Error while broadcasting drive State comand");
