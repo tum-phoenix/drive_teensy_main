@@ -21,9 +21,9 @@ MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define SER_V_PIN     A10
 #define JT_V_PIN      A11
 #define NUC_V_PIN     A14
-#define SER_CURR_FACTOR 0
-#define JT_CURR_FACTOR  0
-#define NUC_CURR_FACTOR 0
+#define SER_CURR_FACTOR (3.3/4096./100./0.006)
+#define JT_CURR_FACTOR  (3.3/4096./100./0.003)
+#define NUC_CURR_FACTOR (3.3/4096./100./0.003)
 #define SER_V_FACTOR    0.02578125/4 // 14k + 2k
 #define JT_V_FACTOR     0.02578125/4 // 14k + 2k
 #define NUC_V_FACTOR    0.02578125/4 // 14k + 2k

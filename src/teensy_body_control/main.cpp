@@ -15,7 +15,7 @@ static constexpr uint8_t hwVersion = 1;
 static const char* nodeName = "org.phoenix.body_control";
 
 // application settings
-static constexpr float framerate = 100;
+static constexpr float framerate = 50;
 
 // Driving dynamics
 #define FRONT_LEFT  MotorState::POS_FRONT_LEFT
@@ -44,6 +44,7 @@ static struct car_vel_t {
   float is;
   float sp;
 } car_vel;
+
 // Vesc
 static struct actor_comm_t{
   float motor_amps[4] = {0,0,0,0};
@@ -55,7 +56,7 @@ bldcMeasure measuredVal_motor[4];
 boolean braking = false;
 
 // Power
-int power_update_rate = 5;
+int power_update_rate = 2;
 MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CELL4_PIN A0
 #define CURR_PIN  A1
@@ -103,6 +104,7 @@ void steer_angle_distribution(float*);
 float v_veh();
 void process_lights();
 void update_lights(uint32_t command);
+bool disable_motors();
 
 #include "Publisher.h"
 #include "Subscriber.h"
@@ -177,6 +179,9 @@ void loop() {
   // get RC data, high level commands, motor telemetry rear motors
   cycleNode(node);
 
+  vesc_send_status_request(0);
+  vesc_send_status_request(1);
+  delayMicroseconds(5000);
   // update motor front left information
   switch (VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT)) {
     case COMM_GET_VALUES:
@@ -228,8 +233,6 @@ void loop() {
   // update LED command
   process_lights();
 
-  vesc_send_status_request(0);
-  vesc_send_status_request(1);
   cyclePublisher_Drive_State(v_veh(), actor_comms.steer_angles[0], actor_comms.steer_angles[1]);
 }
 
@@ -273,25 +276,31 @@ float a_wheel(uint8_t wheelindex) {
 void dynamics_control() {
 
   if (check_arm_state()) {
-    #define ACC_FACTOR 0.3
+    #define ACC_FACTOR 0.0
     float main_amps = calc_speed_pid();
     float steer[4];
     calc_steer(steer);   // 4 elements
     float tv_factor = configuration.tvFactor * constrain(RC_coms.steer_f + RC_coms.steer_r, -1., 1.);
     float acc_factor = sgn(main_amps)*ACC_FACTOR;
-
-    if (sgn(main_amps) != sgn(v_veh()) && abs(main_amps) > 0.5) {
+    float amp_add = 0;
+    if (sgn(main_amps) != sgn(v_veh()) && abs(main_amps) > 0.2) {
       braking = true;
     } else {
       braking = false;
     }
+    /*
     if (abs(car_vel.sp) < abs(car_vel.is)){
-      main_amps += 1000; // amp command set +1000 to make clear it is not a normal command, but braking in this case
+      amp_add = 1000; // amp command set +1000 to make clear it is not a normal command, but braking in this case
     }
-    actor_comms.motor_amps[FRONT_LEFT]  = main_amps * (1+tv_factor-acc_factor);
-    actor_comms.motor_amps[FRONT_RIGHT] = main_amps * (1-tv_factor-acc_factor);
-    actor_comms.motor_amps[REAR_LEFT]   = main_amps * (1+tv_factor+acc_factor) / 1.7;
-    actor_comms.motor_amps[REAR_RIGHT]  = main_amps * (1-tv_factor+acc_factor) / 1.7;
+    if (disable_motors()) {
+      amp_add = 1000;
+      main_amps = 0;
+    }
+    */
+    actor_comms.motor_amps[FRONT_LEFT]  = (main_amps * (1+tv_factor-acc_factor)) + amp_add;
+    actor_comms.motor_amps[FRONT_RIGHT] = (main_amps * (1-tv_factor-acc_factor)) + amp_add;
+    actor_comms.motor_amps[REAR_LEFT]   = (main_amps * (1+tv_factor+acc_factor) / 1.7) + amp_add;
+    actor_comms.motor_amps[REAR_RIGHT]  = (main_amps * (1-tv_factor+acc_factor) / 1.7) + amp_add;
 
     actor_comms.servo_angles[FRONT_LEFT] = steer[FRONT_LEFT];
     actor_comms.servo_angles[FRONT_RIGHT] = steer[FRONT_RIGHT];
@@ -431,6 +440,8 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
 
 void update_lights(uint32_t command) {
   pwm_lights.write(map((float)command, 96., 8032., 0., 180.));
+  //Serial.print(command, BIN); Serial.print("\t");
+  //Serial.println(map((float)command, 96., 8032., 0., 180.));
 }
 
 void process_lights() {
@@ -441,31 +452,75 @@ void process_lights() {
     bitSet(light_com, PWM_RC_LED);
     parity_counter++;
   }
+  else 
+  {
+    bitClear(light_com, PWM_RC_LED);
+  }
   if (NUC_drive_coms.blink == 1 || NUC_drive_coms.blink == 3)
   {
     bitSet(light_com, PWM_BLINK_LEFT);
     parity_counter++;
+  }
+  else 
+  {
+    bitClear(light_com, PWM_BLINK_LEFT);
   }
   if (NUC_drive_coms.blink == 2 || NUC_drive_coms.blink == 3)
   {
     bitSet(light_com, PWM_BLINK_RIGHT);
     parity_counter++;
   }
+  else 
+  {
+    bitClear(light_com, PWM_BLINK_RIGHT);
+  }
   if (braking) 
   {
     bitSet(light_com, PWM_BRAKE);
     parity_counter++;
+  }
+  else 
+  {
+    bitClear(light_com, PWM_BRAKE);
   }
   if (check_arm_state()) 
   {
     bitSet(light_com, PWM_ARM);
     parity_counter++;
   }
+  else 
+  {
+    bitClear(light_com, PWM_ARM);
+  }
   // calculate the odd parity
   if (parity_counter % 2 != 0)
   { // if we have an odd number allready, clear the parity bit
     bitClear(light_com, PWM_O_PARITY);
   }
+  else 
+  {
+    bitSet(light_com, PWM_O_PARITY);
+  }
 
   update_lights(light_com);
+}
+
+bool disable_motors() {
+  #define MOT_DIS_THRESHOLD_V 0.001
+  #define MOT_DIS_THRESHOLD_MS 1500
+  static uint32_t start_micros = 0;
+  static float thr_prev = 0;
+  if (abs(RC_coms.thr) < MOT_DIS_THRESHOLD_V) {
+    if (abs(thr_prev) >=  MOT_DIS_THRESHOLD_V) {
+      start_micros = millis();
+      thr_prev = RC_coms.thr;
+      return false;
+    }
+    else if (millis() - start_micros >= MOT_DIS_THRESHOLD_MS) {
+      thr_prev = RC_coms.thr;
+      return true;
+    }
+  }
+  thr_prev = RC_coms.thr;
+  return false;
 }

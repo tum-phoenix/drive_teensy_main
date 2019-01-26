@@ -134,6 +134,10 @@ void cyclePublisher(DJI& dji)
      // it is time for an update of motor states
      last_motor_state_update = systemClock->getMonotonic();
 
+
+    vesc_send_status_request(0);
+    vesc_send_status_request(1);
+    delayMicroseconds(5000);
      // update motor 3 information
      if (VescUartGetValue(measuredVal_motor3, 0)) { 
    		MotorState msg;
@@ -188,9 +192,6 @@ void cyclePublisher(DJI& dji)
     float ds = (rear.speed * dt)/1000000; // mm
     float temp = (float)rear.dist_trav + ds;
     rear.dist_trav = (uint32_t)temp;
-
-    vesc_send_status_request(0);
-    vesc_send_status_request(1);
 
   }
 

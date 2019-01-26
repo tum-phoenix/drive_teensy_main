@@ -15,18 +15,18 @@ static constexpr uint8_t hwVersion = 1;
 static const char* nodeName = "org.phoenix.dji";
 
 // application settings
-static constexpr float framerate = 1000;
+static constexpr float framerate = 500;
 
 // common
 uint8_t bat_alm = 0;
 
 // DJI
-int rc_update_rate = 50;
+int rc_update_rate = 150;
 MonotonicTime last_rc_update = MonotonicTime::fromMSec(0);
 DJI dji(Serial2);
 
 // Power
-int power_update_rate = 5;
+int power_update_rate = 2;
 MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CELL3_PIN A5
 #define CELL2_PIN A11
@@ -54,7 +54,7 @@ MonotonicTime last_button_update = MonotonicTime::fromMSec(0);
 uint8_t bitwise_buttons = 0;
 
 // Vesc
-int motor_state_update_rate = 100;
+int motor_state_update_rate = 50;
 MonotonicTime last_motor_state_update = MonotonicTime::fromMSec(0);
 struct bldcMeasure measuredVal_motor3;
 struct bldcMeasure measuredVal_motor4;
