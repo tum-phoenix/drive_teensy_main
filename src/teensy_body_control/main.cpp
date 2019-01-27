@@ -430,11 +430,11 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     servo_angles[FRONT_RIGHT] = -s_sp[0]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
   }
   if (s_sp[1] > 0) {
-    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_INNER;
-    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_OUTER;
+    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
   } else {
-    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_OUTER;
-    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_INNER;
+    servo_angles[REAR_LEFT]  = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+    servo_angles[REAR_RIGHT] = -s_sp[1]/MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
   }
 }
 
