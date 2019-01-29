@@ -350,7 +350,7 @@ uint8_t VescUartGetValue(bldcMeasure &values, uint8_t serial_port)
 		values.avgId = buffer_get_float32(message, 1e2, &ind);				 // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_id(), 1e2, &ind);
 		values.avgIq = buffer_get_float32(message, 1e2, &ind);				 // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_iq(), 1e2, &ind);
 		values.dutyNow = buffer_get_float16(message, 1000.0, &ind);			 // buffer_append_float16(send_buffer, mc_interface_get_duty_cycle_now(), 1e3, &ind);
-		values.rpm = buffer_get_float32(message, 1.0, &ind);				 // buffer_append_float32(send_buffer, mc_interface_get_rpm(), 1e0, &ind);
+		values.erpm = buffer_get_float32(message, 1.0, &ind);				 // buffer_append_float32(send_buffer, mc_interface_get_rpm(), 1e0, &ind);
 		values.inpVoltage = buffer_get_float16(message, 10.0, &ind);		 // buffer_append_float16(send_buffer, GET_INPUT_VOLTAGE(), 1e1, &ind);
 		values.ampHours = buffer_get_float32(message, 10000.0, &ind);		 // buffer_append_float32(send_buffer, mc_interface_get_amp_hours(false), 1e4, &ind);
 		values.ampHoursCharged = buffer_get_float32(message, 10000.0, &ind); // buffer_append_float32(send_buffer, mc_interface_get_amp_hours_charged(false), 1e4, &ind);
@@ -385,13 +385,13 @@ void VescUartSetCurrentBrake(float brakeCurrent, int num)
 	PackSendPayload(payload, 5, num);
 }
 
-void VescUartSetRPM(float rpm, int num)
+void VescUartSetERPM(float erpm, int num)
 {
 	int32_t index = 0;
 	uint8_t payload[5];
 
 	payload[index++] = COMM_SET_RPM;
-	buffer_append_int32(payload, (int32_t)(rpm), &index);
+	buffer_append_int32(payload, (int32_t)(erpm), &index);
 	PackSendPayload(payload, 5, num);
 }
 

@@ -534,7 +534,7 @@ struct bldcMeasure {
 	float avgId;
 	float avgIq;
 	float dutyNow;
-	long rpm;
+	long  erpm;
 	float inpVoltage;
 	float ampHours;
 	float ampHoursCharged;

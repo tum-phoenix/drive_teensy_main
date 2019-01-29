@@ -102,12 +102,10 @@ void cyclePublisher_Mot_State(bldcMeasure data, uint8_t motor_position)
 {
   MotorState msg;
   msg.position =      motor_position; // MotorState::POS_FRONT_RIGHT;
-  msg.temp_fet =      data.tempFetFiltered;
   msg.motor_current = data.avgMotorCurrent;
   msg.input_current = data.avgInputCurrent;
   msg.input_voltage = data.inpVoltage;
-  msg.rpm =           data.rpm / 7; // RPM = ERPM / 7
-  msg.fault_code =    data.faultCode;
+  msg.erpm =          data.erpm;
 
   //SerialPrint(measuredVal_motor1);
 
