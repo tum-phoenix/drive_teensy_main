@@ -12,12 +12,14 @@ static constexpr uint8_t param_start_addr = 0;
 // parameter storage with default values
 static struct Params
 {
-   float maxSpeed = 5;
-   float maxMotorAmps = 5;
-   float speedKp = 100;
+   float maxSpeedRC = 2;
+   float maxSpeedAuton = 5;
+   float maxMotorAmps = 16;
+   float speedKp = 20;
    float speedKi = 0.0;
-   float speedKd = 0.1;
-   float tvFactor = 0.5;
+   float speedKd = 0.0;
+   float tvFactor = 0.3;
+   float acFactor = 0.3;
    float steeringOff_FL = 0;
    float steeringOff_FR = 0;
 } configuration;
@@ -44,26 +46,37 @@ class : public uavcan::IParamManager
     void getParamNameByIndex(Index index, Name& out_name) const override
     {
 
-        if (index == 0) { out_name = "maxSpeed[m/s]"; }
-        if (index == 1) { out_name = "maxMotorCurrent[A]"; }
-        if (index == 2) { out_name = "speedKp[-]"; }
-        if (index == 3) { out_name = "speedKi[-]"; }
-        if (index == 4) { out_name = "speedKd[-]"; }
-        if (index == 5) { out_name = "tvFactor[-]"; }
-        if (index == 6) { out_name = "Servo Offset FL [deg]"; }
-        if (index == 7) { out_name = "Servo Offset FR [deg]"; }
+        if (index == 0) { out_name = "maxSpeedRC[m/s]"; }
+        if (index == 1) { out_name = "maxSpeedAuton[m/s]"; }
+        if (index == 2) { out_name = "maxMotorCurrent[A]"; }
+        if (index == 3) { out_name = "speedKp[-]"; }
+        if (index == 4) { out_name = "speedKi[-]"; }
+        if (index == 5) { out_name = "speedKd[-]"; }
+        if (index == 6) { out_name = "tvFactor[-]"; }
+        if (index == 7) { out_name = "acFactor[-]"; }
+        if (index == 8) { out_name = "Servo Offset FL [deg]"; }
+        if (index == 9) { out_name = "Servo Offset FR [deg]"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
     {
 
-        if (name == "maxSpeed[m/s]")
+        if (name == "maxSpeedRC[m/s]")
         {
             if (value.is(uavcan::protocol::param::Value::Tag::real_value))
             {
-                configuration.maxSpeed = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Changed maxSpeed[m/s] to: ");
-                Serial.println(configuration.maxSpeed);
+                configuration.maxSpeedRC = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed maxSpeedRC[m/s] to: ");
+                Serial.println(configuration.maxSpeedRC);
+            }
+        }
+        if (name == "maxSpeedAuton[m/s]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.maxSpeedAuton = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed maxSpeedAuton[m/s] to: ");
+                Serial.println(configuration.maxSpeedAuton);
             }
         }
         else if (name == "maxMotorCurrent[A]")
@@ -111,6 +124,15 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.tvFactor);
             }
         }
+        else if (name == "acFactor[-]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.acFactor = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed acFactor[-] to: ");
+                Serial.println(configuration.acFactor);
+            }
+        }
         else if (name == "Servo Offset FL [deg]")
         {
             if (value.is(uavcan::protocol::param::Value::Tag::real_value))
@@ -137,9 +159,13 @@ class : public uavcan::IParamManager
 
     void readParamValue(const Name& name, Value& out_value) const override
     {
-        if (name == "maxSpeed[m/s]")
+        if (name == "maxSpeedRC[m/s]")
         {
-            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxSpeed;
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxSpeedRC;
+        }
+        else if (name == "maxSpeedAuton[m/s]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxSpeedAuton;
         }
         else if (name == "maxMotorCurrent[A]")
         {
@@ -160,6 +186,10 @@ class : public uavcan::IParamManager
         else if (name == "tvFactor[-]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.tvFactor;
+        }
+        else if (name == "acFactor[-]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.acFactor;
         }
         else if (name == "Servo Offset FL [deg]")
         {
@@ -197,11 +227,17 @@ class : public uavcan::IParamManager
     {
 
 
-        if (name == "maxSpeed[m/s]")
+        if (name == "maxSpeedRC[m/s]")
         {
-            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxSpeed;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 15;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxSpeedRC;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 10;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = .1;
+        }
+        if (name == "maxSpeedAuton[m/s]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxSpeedAuton;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 10;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = .1;
         }
         else if (name == "maxMotorCurrent[A]")
         {
@@ -230,6 +266,12 @@ class : public uavcan::IParamManager
         else if (name == "tvFactor[-]")
         {
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().tvFactor;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
+        }
+        else if (name == "acFactor[-]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().acFactor;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 0;
         }
