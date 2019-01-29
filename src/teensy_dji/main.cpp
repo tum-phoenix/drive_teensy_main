@@ -59,7 +59,6 @@ MonotonicTime last_motor_state_update = MonotonicTime::fromMSec(0);
 struct bldcMeasure measuredVal_motor3;
 struct bldcMeasure measuredVal_motor4;
 float max_fet_temperature = 80;
-float vveh = 0;
 
 // servos for steering
 PWMServo steering_servo_3;
@@ -85,12 +84,15 @@ MonotonicTime last_par_lot_update = MonotonicTime::fromMSec(0);
 
 // odometry
 typedef struct {
-  int32_t dist_trav;  // mm
-  int16_t speed;      // mm/s
+  float dist_trav;  // mm
+  float speed;      // mm/s
 } odometry_t;
 odometry_t rear;
 
-void v_veh();
+#define WHEEL_RADIUS_M 0.033
+
+float v_veh();
+float x_veh();
 void buzzer_routine();
 bool check_arm_state();
 
@@ -177,10 +179,25 @@ void loop() {
   
 }
 
-void v_veh() {
-  float mean_rounds = ((float)measuredVal_motor3.rpm + (float)measuredVal_motor4.rpm)/14; // RPM
-  mean_rounds /= 60; // RPS
-  vveh = mean_rounds * 2 * M_PI * WHEEL_RADIUS_M; // m/s;
+float v_veh() {
+  float mean_rounds = ((float)measuredVal_motor3.erpm + (float)measuredVal_motor4.erpm)/14.; // RPM
+  mean_rounds /= 60.; // RPS
+  rear.speed = mean_rounds * 2. * M_PI * WHEEL_RADIUS_M; // m/s;
+  return rear.speed;
+}
+
+float x_veh()
+{
+  v_veh();
+  static uint32_t lastupdate = 0;
+  static uint32_t thisupdate = 0;
+  lastupdate = thisupdate;
+  thisupdate = micros();
+  uint32_t dt = thisupdate-lastupdate; // micros
+  float ds = (rear.speed * dt)/1000000.; // mm
+  float temp = (float)rear.dist_trav + ds;
+  rear.dist_trav = (uint32_t)temp;
+  return rear.dist_trav;
 }
 
 void buzzer_routine() {

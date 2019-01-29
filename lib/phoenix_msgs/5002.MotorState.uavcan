@@ -4,10 +4,8 @@ uint8 POS_REAR_LEFT   = 2
 uint8 POS_REAR_RIGHT  = 3
 uint8 position
 
-float16 temp_fet
 float16 motor_current
 float16 input_current
 float16 input_voltage
 
-int32 rpm
-int32 fault_code
+int32 erpm

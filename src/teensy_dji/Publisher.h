@@ -125,12 +125,6 @@ void cyclePublisher(DJI& dji)
       MonotonicDuration::fromMSec(1000/(float)motor_state_update_rate) <
       systemClock->getMonotonic())
    {
-     
-    static uint32_t lastupdate = 0;
-    static uint32_t thisupdate = 0;
-    lastupdate = thisupdate;
-    thisupdate = micros();
-
      // it is time for an update of motor states
      last_motor_state_update = systemClock->getMonotonic();
 
@@ -142,12 +136,10 @@ void cyclePublisher(DJI& dji)
      if (VescUartGetValue(measuredVal_motor3, 0)) { 
    		MotorState msg;
        msg.position      = motor3_position;
-       msg.temp_fet      = measuredVal_motor3.tempFetFiltered;
        msg.motor_current = measuredVal_motor3.avgMotorCurrent;
        msg.input_current = measuredVal_motor3.avgInputCurrent;
        msg.input_voltage = measuredVal_motor3.inpVoltage;
-       msg.rpm           = measuredVal_motor3.rpm;
-       msg.fault_code    = measuredVal_motor3.faultCode;
+       msg.erpm           = measuredVal_motor3.erpm;
        const int pres = motor_state_Publisher->broadcast(msg);
        if (pres < 0)
        {
@@ -165,12 +157,10 @@ void cyclePublisher(DJI& dji)
      if (VescUartGetValue(measuredVal_motor4, 1)) {
    		MotorState msg;
        msg.position      = motor4_position;
-       msg.temp_fet      = measuredVal_motor4.tempFetFiltered;
        msg.motor_current = measuredVal_motor4.avgMotorCurrent;
        msg.input_current = measuredVal_motor4.avgInputCurrent;
        msg.input_voltage = measuredVal_motor4.inpVoltage;
-       msg.rpm           = measuredVal_motor4.rpm;
-       msg.fault_code    = measuredVal_motor4.faultCode;
+       msg.erpm           = measuredVal_motor4.erpm;
        const int pres = motor_state_Publisher->broadcast(msg);
        if (pres < 0)
        {
@@ -183,16 +173,6 @@ void cyclePublisher(DJI& dji)
    	{
    		//Serial.println("Failed to get motor 4 data!");
    	}
-    
-    #define WHEEL_RADIUS_M 0.033
-    float mean_rounds = ((float)measuredVal_motor3.rpm + (float)measuredVal_motor4.rpm)/14; // RPM
-    mean_rounds /= 60; // RPS
-    rear.speed = (uint32_t)(mean_rounds * 2000 * M_PI * WHEEL_RADIUS_M); // mm/s;
-    uint32_t dt = thisupdate-lastupdate; // micros
-    float ds = (rear.speed * dt)/1000000; // mm
-    float temp = (float)rear.dist_trav + ds;
-    rear.dist_trav = (uint32_t)temp;
-
   }
 
   // remote control update -> at rc_update_rate -> check time first
@@ -298,10 +278,10 @@ void cyclePublisher(DJI& dji)
     {
       // it is time for an update of the parking lot readings
       last_par_lot_update = systemClock->getMonotonic();
-
+      
       ParallelParking msg;
       msg.lot_size = lot_size;
-      msg.dist_to_lot = rear.dist_trav - last_lot_pos;
+      msg.dist_to_lot = x_veh() - last_lot_pos;
 
       const int pres = ppark_Publisher->broadcast(msg);
       if (pres < 0)
@@ -319,8 +299,8 @@ void cyclePublisher(DJI& dji)
 
 
 void pf_ir_routine() {
-  static int32_t start_odom;
-  int32_t pos = rear.dist_trav;
+  static float start_odom;
+  float pos = x_veh();
   uint8_t state = digitalRead(PF_LS_PIN);
   sei();
   if (state == HIGH) {

@@ -28,17 +28,15 @@ void remote_control_callback(const RemoteControl& msg)
 void Motor_State_callback(const MotorState& msg)
 {
   if (msg.position == MotorState::POS_REAR_LEFT) {
-    measuredVal_motor[REAR_LEFT].tempFetFiltered = msg.temp_fet;
     measuredVal_motor[REAR_LEFT].inpVoltage = msg.input_voltage;
     measuredVal_motor[REAR_LEFT].avgMotorCurrent = msg.motor_current;
     measuredVal_motor[REAR_LEFT].avgInputCurrent = msg.input_current;
-    measuredVal_motor[REAR_LEFT].rpm = msg.rpm;
+    measuredVal_motor[REAR_LEFT].erpm = msg.erpm;
   } else if (msg.position == MotorState::POS_REAR_RIGHT) {
-    measuredVal_motor[REAR_RIGHT].tempFetFiltered = msg.temp_fet;
     measuredVal_motor[REAR_RIGHT].inpVoltage = msg.input_voltage;
     measuredVal_motor[REAR_RIGHT].avgMotorCurrent = msg.motor_current;
     measuredVal_motor[REAR_RIGHT].avgInputCurrent = msg.input_current;
-    measuredVal_motor[REAR_RIGHT].rpm = msg.rpm;
+    measuredVal_motor[REAR_RIGHT].erpm = msg.erpm;
   }
 }
 
