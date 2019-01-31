@@ -1,128 +1,140 @@
-#include "Arduino.h"
-#include "phoenix_can_shield.h"
-#include <Adafruit_BNO055.h>
-#include <Adafruit_Sensor.h>
-#include <utility/imumaths.h>
-#include "PWMServo.h"
-#include "parameter.hpp"
-#include <math.h>
-#include "vuart.h"
-#include <Filters.h>
+// includes
+  #include "Arduino.h"
+  #include "phoenix_can_shield.h"
+  #include <Adafruit_BNO055.h>
+  #include <Adafruit_Sensor.h>
+  #include <utility/imumaths.h>
+  #include "PWMServo.h"
+  #include "parameter.hpp"
+  #include <math.h>
+  #include "vuart.h"
+  #include <Filters.h>
+//
 
 // CAN Node settings
-static constexpr uint32_t nodeID = 101;
-static constexpr uint8_t swVersion = 1;
-static constexpr uint8_t hwVersion = 1;
-static const char *nodeName = "org.phoenix.body_control";
+  static constexpr uint32_t nodeID = 101;
+  static constexpr uint8_t swVersion = 1;
+  static constexpr uint8_t hwVersion = 1;
+  static const char *nodeName = "org.phoenix.body_control";
+//
 
 // application settings
-static constexpr float framerate = 50;
+  static constexpr float framerate = 50;
+//
 
 // Driving dynamics
-#define FRONT_LEFT MotorState::POS_FRONT_LEFT
-#define FRONT_RIGHT MotorState::POS_FRONT_RIGHT
-#define REAR_LEFT MotorState::POS_REAR_LEFT
-#define REAR_RIGHT MotorState::POS_REAR_RIGHT
+  #define FRONT_LEFT MotorState::POS_FRONT_LEFT
+  #define FRONT_RIGHT MotorState::POS_FRONT_RIGHT
+  #define REAR_LEFT MotorState::POS_REAR_LEFT
+  #define REAR_RIGHT MotorState::POS_REAR_RIGHT
 
-#define WHEEL_RADIUS_M 0.033 // dynamic wheel radius 
+  #define WHEEL_RADIUS_M 0.033 // dynamic wheel radius 
 
-typedef struct
-{
-  float thr = 0;
-  float steer_f = 0;
-  float steer_r = 0;
-  float drive_state = 0;
-  float aux_mode = 3;
-} drive_comm_t;
-drive_comm_t RC_coms;
+  typedef struct
+  {
+    float thr = 0;
+    float steer_f = 0;
+    float steer_r = 0;
+    float drive_state = 0;
+    float aux_mode = 3;
+  } drive_comm_t;
+  drive_comm_t RC_coms;
 
-typedef struct
-{
-  float lin_vel = 0; // m/s
-  float steer_f = 0; // deg/s
-  float steer_r = 0;
-  uint8_t blink = 0; // 0 - none, 1 - left, 2 - right, 3 - both
-} NUC_drive_coms_t;
-NUC_drive_coms_t NUC_drive_coms;
+  typedef struct
+  {
+    float lin_vel = 0; // m/s
+    float steer_f = 0; // deg/s
+    float steer_r = 0;
+    uint8_t blink = 0; // 0 - none, 1 - left, 2 - right, 3 - both
+  } NUC_drive_coms_t;
+  NUC_drive_coms_t NUC_drive_coms;
 
-static struct car_vel_t
-{
-  float is;
-  float sp;
-} car_vel;
+  static struct car_vel_t
+  {
+    float is;
+    float sp;
+  } car_vel;
+//
 
 // Vesc
-static struct actor_comm_t
-{
-  float motor_amps[4] = {0, 0, 0, 0};
-  float servo_angles[4] = {90, 90, 90, 90};
-  float steer_angles[2] = {0, 0};
-} actor_comms;
+  static struct actor_comm_t
+  {
+    float motor_amps[4] = {0, 0, 0, 0};
+    float servo_angles[4] = {90, 90, 90, 90};
+    float steer_angles[2] = {0, 0};
+  } actor_comms;
 
-bldcMeasure measuredVal_motor[4];
-boolean braking = false;
+  bldcMeasure measuredVal_motor[4];
+  boolean braking = false;
+//
 
 // Power
-int power_update_rate = 2;
-MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
-#define CELL4_PIN A0
-#define CURR_PIN A1
-#define Cell4_FACTOR 0.0052815755  // 10k + 1k8
-#define CURR_FACTOR 0.00161133 / 4 // 0R01 + 200V/V
+  int power_update_rate = 2;
+  MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
+  #define CELL4_PIN A0
+  #define CURR_PIN A1
+  #define Cell4_FACTOR 0.0052815755  // 10k + 1k8
+  #define CURR_FACTOR 0.00161133 / 4 // 0R01 + 200V/V
+//
 
 // BNO055 imu
-Adafruit_BNO055 bno055 = Adafruit_BNO055();
+  Adafruit_BNO055 bno055 = Adafruit_BNO055();
+//
 
 // servos for steering
-PWMServo steering_servo[2];
-float steering_servo_position[2];
-float steering_servo_offset[2] = {98, 92};
-uint8_t steering_servo_pin[2] = {10, 9};
-#define MAX_STEER_ANGLE 32 // degrees
-#define MAX_STEER_SERVO_INNER 50
-#define MAX_STEER_SERVO_OUTER 30
+  PWMServo steering_servo[2];
+  float steering_servo_position[2];
+  float steering_servo_offset[2] = {98, 92};
+  uint8_t steering_servo_pin[2] = {10, 9};
+  #define MAX_STEER_ANGLE 32 // degrees
+  #define MAX_STEER_SERVO_INNER 50
+  #define MAX_STEER_SERVO_OUTER 30
 
-// filters out changes faster that 2 Hz.
-float filterFrequency_servo = 2.0;
+  // filters out changes faster that 2 Hz.
+  float filterFrequency_servo = 2.0;
 
-// create a one pole (RC) lowpass filter
-FilterOnePole lowpassFilterServoFront(LOWPASS, filterFrequency_servo); 
-FilterOnePole lowpassFilterServoRear(LOWPASS, filterFrequency_servo); 
+  // create a one pole (RC) lowpass filter
+  FilterOnePole lowpassFilterServoFront(LOWPASS, filterFrequency_servo); 
+  FilterOnePole lowpassFilterServoRear(LOWPASS, filterFrequency_servo); 
+//
 
 // lights
-#define PWM_LIGHT_PIN 5
-enum light_pwm_order
-{
-  PWM_NOT_USED_0,
-  PWM_NOT_USED_1,
-  PWM_NOT_USED_2,
-  PWM_NOT_USED_3,
-  PWM_NOT_USED_4,
-  PWM_OFFSET,
-  PWM_O_PARITY,
-  PWM_BLANK,
-  PWM_BLINK_LEFT,
-  PWM_BLINK_RIGHT,
-  PWM_BRAKE,
-  PWM_RC_LED,
-  PWM_ARM
-};
-uint32_t light_com = B01100000;
-PWMServo pwm_lights;
+  #define PWM_LIGHT_PIN 5
+  enum light_pwm_order
+  {
+    PWM_NOT_USED_0,
+    PWM_NOT_USED_1,
+    PWM_NOT_USED_2,
+    PWM_NOT_USED_3,
+    PWM_NOT_USED_4,
+    PWM_OFFSET,
+    PWM_O_PARITY,
+    PWM_BLANK,
+    PWM_BLINK_LEFT,
+    PWM_BLINK_RIGHT,
+    PWM_BRAKE,
+    PWM_RC_LED,
+    PWM_ARM
+  };
+  uint32_t light_com = B01100000;
+  PWMServo pwm_lights;
+//
 
-float calc_speed_pid();
-void dynamics_control();
-void vesc_command();
-uint8_t check_arm_state();
-void calc_steer(float *);
-void steer_angle_distribution(float *);
-float v_veh();
-void process_lights();
-void update_lights(uint32_t command);
-bool disable_motors();
+// header
+  float calc_speed_pid();
+  void dynamics_control();
+  void vesc_command();
+  uint8_t check_arm_state();
+  void calc_steer(float *);
+  void steer_angle_distribution(float *);
+  float v_veh();
+  void process_lights();
+  void update_lights(uint32_t command);
+  bool disable_motors();
 
-#include "Publisher.h"
-#include "Subscriber.h"
+  #include "Publisher.h"
+  #include "Subscriber.h"
+//
 
 void setup()
 {
@@ -265,6 +277,7 @@ void loop()
  *      |_|   .
  *     |______.
 */
+
 float a_x_imu()
 {
   return (float)bno_data.lin_acc[0]; 
@@ -460,8 +473,9 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
   float s_sp[2] = {0, 0};
   if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL)
   {
-    s_sp[0] = -RC_coms.steer_f * MAX_STEER_ANGLE;
-    s_sp[1] = RC_coms.steer_r * MAX_STEER_ANGLE; //RC_coms.steer_r*MAX_STEER_ANGLE;
+    // apply an exponetial curve for RC steering for better feel
+    s_sp[0] = -sgn(RC_coms.steer_f) * pow(abs(RC_coms.steer_f), 1.5) * MAX_STEER_ANGLE;
+    s_sp[1] =  sgn(RC_coms.steer_r) * pow(abs(RC_coms.steer_r), 1.5) * MAX_STEER_ANGLE;
   }
   else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
   {
@@ -578,8 +592,8 @@ void process_lights()
 
 bool disable_motors()
 {
-#define MOT_DIS_THRESHOLD_V 0.001
-#define MOT_DIS_THRESHOLD_MS 1500
+  #define MOT_DIS_THRESHOLD_V 0.001
+  #define MOT_DIS_THRESHOLD_MS 1500
   static uint32_t start_millis = 0;
   static float thr_prev = 0;
   if (abs(RC_coms.thr) < MOT_DIS_THRESHOLD_V)
