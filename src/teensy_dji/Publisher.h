@@ -11,7 +11,7 @@
 #include "vuart.h"
 #include <Filters.h>
 
-using namespace uavcan;
+using namespace uavcan; 
 using namespace phoenix_msgs;
 
 // publishing tasks:
@@ -131,7 +131,7 @@ void cyclePublisher(DJI& dji)
 
     vesc_send_status_request(0);
     vesc_send_status_request(1);
-    delayMicroseconds(5000);
+    delayMicroseconds(7000);
      // update motor 3 information
      if (VescUartGetValue(measuredVal_motor3, 0)) { 
    		MotorState msg;
@@ -212,18 +212,12 @@ void cyclePublisher(DJI& dji)
       //Serial.println((float)msg.velocity * 10);
 
       // left stick - left/right - steering rear
-      lowpassFilterRear.input(dji.leftHorizontalStick(msg.steer_rear));
-      msg.steer_rear = lowpassFilterRear.output();
+      msg.steer_rear = dji.leftHorizontalStick(msg.steer_rear);
       
 
-      // right stick - left/right - front rear
-      float temp = msg.steer_front;
-      if (abs(temp-dji.rightHorizontalStick(msg.steer_front))<0.4){
-        lowpassFilterFront.input(dji.rightHorizontalStick(msg.steer_front));
-        msg.steer_front = lowpassFilterFront.output();
-      } else {
-        msg.steer_front = temp;
-      }
+      // right stick - left/right - front steer
+      msg.steer_front = dji.rightHorizontalStick(msg.steer_front);
+
       const int pres = rc_Publisher->broadcast(msg);
       if (pres < 0)
       {
@@ -303,7 +297,7 @@ void pf_ir_routine() {
   float pos = x_veh();
   uint8_t state = digitalRead(PF_LS_PIN);
   sei();
-  if (state == HIGH) {
+  if (state == LOW) {
     start_odom = pos;
     //setRGBled(0,0,255);
   } else {

@@ -32,11 +32,13 @@ void Motor_State_callback(const MotorState& msg)
     measuredVal_motor[REAR_LEFT].avgMotorCurrent = msg.motor_current;
     measuredVal_motor[REAR_LEFT].avgInputCurrent = msg.input_current;
     measuredVal_motor[REAR_LEFT].erpm = msg.erpm;
+    last_mot_state_update[MotorState::POS_REAR_LEFT] = millis();
   } else if (msg.position == MotorState::POS_REAR_RIGHT) {
     measuredVal_motor[REAR_RIGHT].inpVoltage = msg.input_voltage;
     measuredVal_motor[REAR_RIGHT].avgMotorCurrent = msg.motor_current;
     measuredVal_motor[REAR_RIGHT].avgInputCurrent = msg.input_current;
     measuredVal_motor[REAR_RIGHT].erpm = msg.erpm;
+    last_mot_state_update[MotorState::POS_REAR_RIGHT] = millis();
   }
 }
 

@@ -30,6 +30,7 @@
 
   #define WHEEL_RADIUS_M 0.033 // dynamic wheel radius 
 
+  #define NUC_DRIVE_COM_DEAD_TIME 250
   typedef struct
   {
     float thr = 0;
@@ -37,6 +38,7 @@
     float steer_r = 0;
     float drive_state = 0;
     float aux_mode = 3;
+    float last_update = 0;
   } drive_comm_t;
   drive_comm_t RC_coms;
 
@@ -65,6 +67,7 @@
   } actor_comms;
 
   bldcMeasure measuredVal_motor[4];
+  uint32_t last_mot_state_update[4] = {0, 0, 0, 0};
   boolean braking = false;
 //
 
@@ -195,11 +198,10 @@ imu_t bno_data;
 uint32_t t_ = 0;
 void loop()
 {
-
   // wait in cycle
   uint32_t t = micros();
   float cpu_load = (float)(t - t_) / (1000000. / (float)framerate);
-  setRGBled((uint8_t)(cpu_load * 255), 255 - (uint8_t)(cpu_load * 255), 0);
+  //setRGBled((uint8_t)(cpu_load * 255), 255 - (uint8_t)(cpu_load * 255), 0);
   //Serial.print("CPU Load: "); Serial.print(cpu_load); Serial.println(" \%");
   cycleWait(framerate);
   t_ = micros();
@@ -209,12 +211,13 @@ void loop()
 
   vesc_send_status_request(0);
   vesc_send_status_request(1);
-  delayMicroseconds(5000);
+  delayMicroseconds(7000);
   // update motor front left information
   switch (VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT))
   {
   case COMM_GET_VALUES:
     cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT);
+    last_mot_state_update[FRONT_LEFT] = millis();
     break;
   default:
     break;
@@ -225,6 +228,7 @@ void loop()
   {
   case COMM_GET_VALUES:
     cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT);
+    last_mot_state_update[FRONT_RIGHT] = millis();
     break;
   default:
     break;
@@ -297,9 +301,26 @@ float v_wheel(uint8_t wheelindex)
 
 float v_veh()
 {
-  //if (a_x_imu()>=0) return (v_wheel(REAR_LEFT)+v_wheel(REAR_RIGHT)) / 2;
-  //else              return (v_wheel(FRONT_LEFT)+v_wheel(FRONT_RIGHT)) / 2;
-  car_vel.is = (v_wheel(FRONT_LEFT) + v_wheel(FRONT_RIGHT) + v_wheel(REAR_LEFT) + v_wheel(REAR_RIGHT)) / 4;
+  #define MOT_STATE_TIMEOUT 200 // timeout for last motor update to be valid
+  uint32_t cur_time = millis();
+  float sum_vel = 0;
+  float devider = 0;
+  for (uint8_t i = 0; i < 4; i++) 
+  {
+    if (millis() - last_mot_state_update[i] < MOT_STATE_TIMEOUT) 
+    {
+      sum_vel += v_wheel(i);
+      devider++;
+    }
+  }
+  if (devider) 
+  {
+    car_vel.is = sum_vel / devider;
+  }
+  else 
+  {
+    car_vel.is = 0;
+  }
   return car_vel.is;
 }
 
@@ -326,24 +347,50 @@ void dynamics_control()
     float tv_factor = configuration.tvFactor * constrain(RC_coms.steer_f + RC_coms.steer_r, -1., 1.);
     float acc_factor = sgn(main_amps) * configuration.acFactor;
     float amp_add = 0;
-    if (sgn(main_amps) != sgn(v_veh()) && abs(main_amps) > 0.2)
+    static int8_t brake_count = 0;
+    if (sgn(main_amps) != sgn(v_veh()) && fabsf(main_amps) > 0.2)
+    {
+      if (brake_count < 6)
+      {
+        brake_count++;
+      }
+    }
+    else 
+    {
+      if (brake_count > 0)
+      {
+        brake_count--;
+      }
+    }
+
+    if (brake_count >= 6)
     {
       braking = true;
     }
-    else
+    else if (brake_count && braking) 
+    {
+      braking = true;
+    }
+    else 
     {
       braking = false;
     }
+
+
     /*
-    if (abs(car_vel.sp) < abs(car_vel.is)){
+    if (fabsf(car_vel.sp) < fabsf(car_vel.is)){
       amp_add = 1000; // amp command set +1000 to make clear it is not a normal command, but braking in this case
     }
-
-    if (disable_motors()) {
-      amp_add = 1000;
+    */
+    if (disable_motors())
+    {
       main_amps = 0;
     }
-    */
+    else 
+    {
+      //setRGBled(0, 0, 0);
+    }
+
     actor_comms.motor_amps[FRONT_LEFT] = (main_amps * (1 + tv_factor - acc_factor)) + amp_add;
     actor_comms.motor_amps[FRONT_RIGHT] = (main_amps * (1 - tv_factor - acc_factor)) + amp_add;
     actor_comms.motor_amps[REAR_LEFT] = (main_amps * (1 + tv_factor + acc_factor) / 1.7) + amp_add;
@@ -431,7 +478,14 @@ float calc_speed_pid()
   }
   else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS)
   {
-    car_vel.sp = constrain(NUC_drive_coms.lin_vel, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
+    if (millis() - RC_coms.last_update < NUC_DRIVE_COM_DEAD_TIME) // see, if updates are fresh enough
+    {
+      car_vel.sp = constrain(NUC_drive_coms.lin_vel, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
+    }
+    else 
+    {
+      car_vel.sp = 0;
+    }
   }
   else
   {
@@ -474,8 +528,8 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
   if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL)
   {
     // apply an exponetial curve for RC steering for better feel
-    s_sp[0] = -sgn(RC_coms.steer_f) * pow(abs(RC_coms.steer_f), 1.5) * MAX_STEER_ANGLE;
-    s_sp[1] =  sgn(RC_coms.steer_r) * pow(abs(RC_coms.steer_r), 1.5) * MAX_STEER_ANGLE;
+    s_sp[0] = -RC_coms.steer_f * MAX_STEER_ANGLE;
+    s_sp[1] =  RC_coms.steer_r * MAX_STEER_ANGLE;
   }
   else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
   {
@@ -596,9 +650,9 @@ bool disable_motors()
   #define MOT_DIS_THRESHOLD_MS 1500
   static uint32_t start_millis = 0;
   static float thr_prev = 0;
-  if (abs(RC_coms.thr) < MOT_DIS_THRESHOLD_V)
+  if (fabsf(RC_coms.thr) < MOT_DIS_THRESHOLD_V)
   {
-    if (abs(thr_prev) >= MOT_DIS_THRESHOLD_V)
+    if (fabsf(thr_prev) >= MOT_DIS_THRESHOLD_V)
     {
       start_millis = millis();
       thr_prev = RC_coms.thr;

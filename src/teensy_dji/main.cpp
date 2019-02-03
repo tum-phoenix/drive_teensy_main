@@ -84,8 +84,8 @@ MonotonicTime last_par_lot_update = MonotonicTime::fromMSec(0);
 
 // odometry
 typedef struct {
-  float dist_trav;  // mm
-  float speed;      // mm/s
+  float dist_trav;  // m
+  float speed;      // m/s
 } odometry_t;
 odometry_t rear;
 
@@ -179,7 +179,8 @@ void loop() {
   
 }
 
-float v_veh() {
+float v_veh() 
+{
   float mean_rounds = ((float)measuredVal_motor3.erpm + (float)measuredVal_motor4.erpm)/14.; // RPM
   mean_rounds /= 60.; // RPS
   rear.speed = mean_rounds * 2. * M_PI * WHEEL_RADIUS_M; // m/s;
@@ -194,9 +195,9 @@ float x_veh()
   lastupdate = thisupdate;
   thisupdate = micros();
   uint32_t dt = thisupdate-lastupdate; // micros
-  float ds = (rear.speed * dt)/1000000.; // mm
-  float temp = (float)rear.dist_trav + ds;
-  rear.dist_trav = (uint32_t)temp;
+  float ds = (rear.speed * (float)dt)/1000000.; // m
+  float temp = rear.dist_trav + ds;
+  rear.dist_trav = temp;
   return rear.dist_trav;
 }
 
