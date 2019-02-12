@@ -302,8 +302,11 @@ void pf_ir_routine() {
     //setRGBled(0,0,255);
   } else {
     lot_size = pos - start_odom;
-    last_lot_pos = pos;
-    publish_lot_msg = 10;
+    if (lot_size < 0.65 && lot_size > 1.05)
+    {
+      last_lot_pos = pos;
+      publish_lot_msg = 5;
+    }
     //setRGBled(255,255,255);
   }
 }

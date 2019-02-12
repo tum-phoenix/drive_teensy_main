@@ -76,8 +76,8 @@ uint32_t last_motor_target_receive = 0;
 
 // Pepperl+Fuchs / parallel parking
 #define PF_LS_PIN 13
-int32_t lot_size = 0;
-int32_t last_lot_pos = 0;
+float lot_size = 0;
+float last_lot_pos = 0;
 uint8_t publish_lot_msg = 0;
 int par_lot_update_rate = 50;
 MonotonicTime last_par_lot_update = MonotonicTime::fromMSec(0);

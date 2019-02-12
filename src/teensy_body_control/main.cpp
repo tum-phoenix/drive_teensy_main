@@ -1,14 +1,14 @@
 // includes
-  #include "Arduino.h"
-  #include "phoenix_can_shield.h"
-  #include <Adafruit_BNO055.h>
-  #include <Adafruit_Sensor.h>
-  #include <utility/imumaths.h>
-  #include "PWMServo.h"
-  #include "parameter.hpp"
-  #include <math.h>
-  #include "vuart.h"
-  #include <Filters.h>
+#include "Arduino.h"
+#include "phoenix_can_shield.h"
+#include <Adafruit_BNO055.h>
+#include <Adafruit_Sensor.h>
+#include <utility/imumaths.h>
+#include "PWMServo.h"
+#include "parameter.hpp"
+#include <math.h>
+#include "vuart.h"
+#include <Filters.h>
 //
 
 // CAN Node settings
@@ -28,15 +28,17 @@
   #define REAR_LEFT MotorState::POS_REAR_LEFT
   #define REAR_RIGHT MotorState::POS_REAR_RIGHT
 
-  #define WHEEL_RADIUS_M 0.033 // dynamic wheel radius 
+  #define WHEEL_RADIUS_M 0.033 // dynamic wheel radius
 
   #define NUC_DRIVE_COM_DEAD_TIME 250
+  #define RC_COM_DEAD_TIME 250
   typedef struct
   {
     float thr = 0;
     float steer_f = 0;
     float steer_r = 0;
     float drive_state = 0;
+    float drive_state_prev = 0;
     float aux_mode = 3;
     float last_update = 0;
   } drive_comm_t;
@@ -48,6 +50,7 @@
     float steer_f = 0; // deg/s
     float steer_r = 0;
     uint8_t blink = 0; // 0 - none, 1 - left, 2 - right, 3 - both
+    uint32_t last_update = 0;
   } NUC_drive_coms_t;
   NUC_drive_coms_t NUC_drive_coms;
 
@@ -56,6 +59,19 @@
     float is;
     float sp;
   } car_vel;
+  double x_dist = 0;
+//
+
+// Parking
+  uint8_t got_parking_command = 0;
+  typedef struct
+  {
+    float lot_size = 0;
+    float lot_dist = 0;
+  } parking_t;
+  parking_t parking;
+  float parking_steer_f = 0;
+  float parking_steer_r = 0;
 //
 
 // Vesc
@@ -97,8 +113,8 @@
   float filterFrequency_servo = 2.0;
 
   // create a one pole (RC) lowpass filter
-  FilterOnePole lowpassFilterServoFront(LOWPASS, filterFrequency_servo); 
-  FilterOnePole lowpassFilterServoRear(LOWPASS, filterFrequency_servo); 
+  FilterOnePole lowpassFilterServoFront(LOWPASS, filterFrequency_servo);
+  FilterOnePole lowpassFilterServoRear(LOWPASS, filterFrequency_servo);
 //
 
 // lights
@@ -134,6 +150,9 @@
   void process_lights();
   void update_lights(uint32_t command);
   bool disable_motors();
+  void set_Speed();
+  void drive_things();
+  void parking_func();
 
   #include "Publisher.h"
   #include "Subscriber.h"
@@ -268,6 +287,8 @@ void loop()
   process_lights();
 
   cyclePublisher_Drive_State(v_veh(), actor_comms.steer_angles[0], actor_comms.steer_angles[1]);
+  
+  //parking_func();
 }
 
 /* acceleration directions in the car
@@ -284,12 +305,12 @@ void loop()
 
 float a_x_imu()
 {
-  return (float)bno_data.lin_acc[0]; 
+  return (float)bno_data.lin_acc[0];
 }
 float a_y_imu()
-{                                    
-  return (float)bno_data.lin_acc[1]; 
-} 
+{
+  return (float)bno_data.lin_acc[1];
+}
 
 float v_wheel(uint8_t wheelindex)
 {
@@ -305,19 +326,19 @@ float v_veh()
   uint32_t cur_time = millis();
   float sum_vel = 0;
   float devider = 0;
-  for (uint8_t i = 0; i < 4; i++) 
+  for (uint8_t i = 0; i < 4; i++)
   {
-    if (millis() - last_mot_state_update[i] < MOT_STATE_TIMEOUT) 
+    if (millis() - last_mot_state_update[i] < MOT_STATE_TIMEOUT)
     {
       sum_vel += v_wheel(i);
       devider++;
     }
   }
-  if (devider) 
+  if (devider)
   {
     car_vel.is = sum_vel / devider;
   }
-  else 
+  else
   {
     car_vel.is = 0;
   }
@@ -355,7 +376,7 @@ void dynamics_control()
         brake_count++;
       }
     }
-    else 
+    else
     {
       if (brake_count > 0)
       {
@@ -367,26 +388,25 @@ void dynamics_control()
     {
       braking = true;
     }
-    else if (brake_count && braking) 
+    else if (brake_count && braking)
     {
       braking = true;
     }
-    else 
+    else
     {
       braking = false;
     }
-
 
     /*
     if (fabsf(car_vel.sp) < fabsf(car_vel.is)){
       amp_add = 1000; // amp command set +1000 to make clear it is not a normal command, but braking in this case
     }
     */
-    if (disable_motors())
+    if (disable_motors() && RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL)
     {
-      main_amps = 0;
+      //main_amps = 0;
     }
-    else 
+    else
     {
       //setRGBled(0, 0, 0);
     }
@@ -465,32 +485,8 @@ float calc_speed_pid()
   t = (float)micros() / 1000000.;
   dt = t - prevt;
 
+  set_Speed();
   v_val = v_veh();
-
-  //calculate Velocity error
-  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL)
-  {
-    car_vel.sp = constrain(RC_coms.thr * configuration.maxSpeedRC, -configuration.maxSpeedRC, configuration.maxSpeedRC);
-  }
-  else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
-  {
-    car_vel.sp = constrain(RC_coms.thr * configuration.maxSpeedAuton, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
-  }
-  else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS)
-  {
-    if (millis() - RC_coms.last_update < NUC_DRIVE_COM_DEAD_TIME) // see, if updates are fresh enough
-    {
-      car_vel.sp = constrain(NUC_drive_coms.lin_vel, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
-    }
-    else 
-    {
-      car_vel.sp = 0;
-    }
-  }
-  else
-  {
-    car_vel.sp = 0;
-  }
   v_error = car_vel.sp - v_val;
   v_err_prev = v_error;
   derr = v_error - v_err_prev;
@@ -529,14 +525,21 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
   {
     // apply an exponetial curve for RC steering for better feel
     s_sp[0] = -RC_coms.steer_f * MAX_STEER_ANGLE;
-    s_sp[1] =  RC_coms.steer_r * MAX_STEER_ANGLE;
+    s_sp[1] = RC_coms.steer_r * MAX_STEER_ANGLE;
   }
   else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
   {
-    NUC_drive_coms.steer_f = constrain(NUC_drive_coms.steer_f, -MAX_STEER_ANGLE, MAX_STEER_ANGLE);
-    NUC_drive_coms.steer_r = constrain(NUC_drive_coms.steer_r, -MAX_STEER_ANGLE, MAX_STEER_ANGLE);
-    s_sp[0] = NUC_drive_coms.steer_f;
-    s_sp[1] = NUC_drive_coms.steer_r;
+    if (!got_parking_command)
+    {
+      NUC_drive_coms.steer_f = constrain(NUC_drive_coms.steer_f, -MAX_STEER_ANGLE, MAX_STEER_ANGLE);
+      NUC_drive_coms.steer_r = constrain(NUC_drive_coms.steer_r, -MAX_STEER_ANGLE, MAX_STEER_ANGLE);
+      s_sp[0] = NUC_drive_coms.steer_f;
+      s_sp[1] = NUC_drive_coms.steer_r;
+    }
+    else {
+       s_sp[0] = parking_steer_f;
+       s_sp[1] = parking_steer_r;
+    }
   }
   else
   {
@@ -544,10 +547,10 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     s_sp[1] = 0;
   }
   // filter the servo signals
-  lowpassFilterServoFront.input(s_sp[0]);
-  s_sp[0] = lowpassFilterServoFront.output();
-  lowpassFilterServoRear.input(s_sp[1]);
-  s_sp[1] = lowpassFilterServoRear.output();
+  //lowpassFilterServoFront.input(s_sp[0]);
+  //s_sp[0] = lowpassFilterServoFront.output();
+  //lowpassFilterServoRear.input(s_sp[1]);
+  //s_sp[1] = lowpassFilterServoRear.output();
 
   // write the servo setpoints
   actor_comms.steer_angles[0] = s_sp[0];
@@ -666,4 +669,212 @@ bool disable_motors()
   }
   thr_prev = RC_coms.thr;
   return false;
+}
+
+void set_Speed()
+{
+  //calculate Velocity error
+  static float this_drive_state = 0;
+  RC_coms.drive_state_prev = this_drive_state;
+  this_drive_state = RC_coms.drive_state;
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL)
+  {
+    /*if (millis() - NUC_drive_coms.last_update < RC_COM_DEAD_TIME) // see, if updates are fresh enough
+      {*/
+    car_vel.sp = constrain(RC_coms.thr * configuration.maxSpeedRC, -configuration.maxSpeedRC, configuration.maxSpeedRC);
+    /*}
+      else 
+      {
+        car_vel.sp = 0;
+      }*/
+  }
+  else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
+  {
+    /*if (millis() - NUC_drive_coms.last_update < RC_COM_DEAD_TIME) // see, if updates are fresh enough
+      {*/
+    car_vel.sp = constrain(RC_coms.thr * configuration.maxSpeedAuton, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
+    /*}
+      else 
+      {
+        car_vel.sp = 0;
+      }*/
+  }
+  else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS)
+  {
+    if (!got_parking_command)
+    {
+      /*if (millis() - NUC_drive_coms.last_update < NUC_COM_DEAD_TIME) // see, if updates are fresh enough
+        {*/
+      car_vel.sp = constrain(NUC_drive_coms.lin_vel, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
+      /*}
+        else 
+        {
+          car_vel.sp = 0;
+        }*/
+    }
+  }
+  else
+  {
+    car_vel.sp = 0;
+  }
+
+  static bool waiting_to_stop = false;
+  static uint32_t wait_to_stop_since = 0;
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL && (RC_coms.drive_state_prev == RemoteControl::DRIVE_MODE_AUTONOMOUS || RC_coms.drive_state_prev == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS))
+  {
+    waiting_to_stop = true;
+    wait_to_stop_since = millis();
+  }
+
+  if (waiting_to_stop)
+  {
+    if (millis() - wait_to_stop_since < 800)
+    {
+      car_vel.sp = 0;
+    }
+    else
+    {
+      waiting_to_stop = false;
+    }
+  }
+}
+
+float x_veh()
+{
+  v_veh();
+  static uint32_t lastupdate = 0;
+  static uint32_t thisupdate = 0;
+  lastupdate = thisupdate;
+  thisupdate = micros();
+  uint32_t dt = thisupdate-lastupdate; // micros
+  double ds = (car_vel.is * (double)dt)/1000000.; // m
+  double temp =  x_dist + ds;
+  x_dist = temp;
+  return x_dist;
+}
+
+void parking_func()
+{
+  #define STEER_X 0.25
+  #define STRAIGHT_X 0.1
+  #define PARK_SPEED 0.5
+  uint8_t count = 0;
+  float start_dist = 0;
+  while (got_parking_command)
+  {
+    if (parking.lot_dist)
+    {
+      if (count == 0)
+      {
+        start_dist = x_veh();
+        count++;
+      }
+      while (x_veh() - start_dist > 0.)
+      {
+        car_vel.sp = -PARK_SPEED;
+        parking_steer_f = 0.;
+        parking_steer_r = 0.;
+        drive_things();
+        delay(20);
+      }
+      float start_steer0 = x_veh();
+      while (start_steer0 - x_veh() < configuration.park_s_x0)
+      {
+        car_vel.sp = -PARK_SPEED;
+        parking_steer_f = configuration.park_steer0;
+        parking_steer_r = configuration.park_steer0;
+        drive_things();
+        delay(20);
+      }
+      float start_steer1 = x_veh();
+      while (start_steer1 - x_veh() < configuration.park_x0)
+      {
+        car_vel.sp = -PARK_SPEED;
+        parking_steer_f = 0.;
+        parking_steer_r = 0.;
+        drive_things();
+        delay(20);
+      }
+      float start_steer2 = x_veh();
+      while (start_steer2 - x_veh() < configuration.park_s_x1)
+      {
+        car_vel.sp = -PARK_SPEED;
+        parking_steer_f = configuration.park_steer0;
+        parking_steer_r = configuration.park_steer0;
+        drive_things();
+        delay(20);
+      }
+      uint32_t begin_halt = millis();
+      while (millis() - begin_halt < 2000)
+      {
+        car_vel.sp = 0;
+        parking_steer_f = 0;
+        parking_steer_r = 0;
+        drive_things();
+        light_com = B01100000;
+        uint8_t parity_counter = 0;
+        if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
+        {
+          bitSet(light_com, PWM_RC_LED);
+          parity_counter++;
+        }
+        else
+        {
+          bitClear(light_com, PWM_RC_LED);
+        }
+        bitSet(light_com, PWM_BLINK_LEFT);
+        parity_counter++;
+        
+        bitSet(light_com, PWM_BLINK_RIGHT);
+        parity_counter++;
+
+        if (braking)
+        {
+          bitSet(light_com, PWM_BRAKE);
+          parity_counter++;
+        }
+        else
+        {
+          bitClear(light_com, PWM_BRAKE);
+        }
+        if (check_arm_state())
+        {
+          bitSet(light_com, PWM_ARM);
+          parity_counter++;
+        }
+        else
+        {
+          bitClear(light_com, PWM_ARM);
+        }
+        // calculate the odd parity
+        if (parity_counter % 2 != 0)
+        { // if we have an odd number allready, clear the parity bit
+          bitClear(light_com, PWM_O_PARITY);
+        }
+        else
+        {
+          bitSet(light_com, PWM_O_PARITY);
+        }
+
+        update_lights(light_com);
+
+        delay(20);
+      }
+      got_parking_command = 0;
+    }
+  }
+}
+
+void drive_things()
+{
+  dynamics_control();
+  // cycle publisher
+  //cyclePublisherBNO(bno_data);
+  cyclePublisher_Actor_Comms(actor_comms);
+
+  // set the connected Motors
+  vesc_command();
+  steering_servo[FRONT_LEFT].write(steering_servo_offset[FRONT_LEFT] + actor_comms.servo_angles[FRONT_LEFT]);
+  steering_servo[FRONT_RIGHT].write(steering_servo_offset[FRONT_RIGHT] + actor_comms.servo_angles[FRONT_RIGHT]);
+
 }
