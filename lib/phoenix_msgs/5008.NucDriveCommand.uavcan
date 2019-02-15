@@ -1,6 +1,7 @@
 float16 lin_vel         # linear velocity in m/s
 float16 phi_f           # steering angle in rad front axis
 float16 phi_r           # steering angle in rad rear axis
+
 uint2 NO_BLINK = 0
 uint2 BLINK_LEFT = 1
 uint2 BLINK_RIGHT = 2

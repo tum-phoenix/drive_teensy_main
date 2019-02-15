@@ -1,0 +1,5 @@
+uint8 id
+float16 voltage
+float16 current
+uint8 fault_code_1
+uint8 fault_code_2

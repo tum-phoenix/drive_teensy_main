@@ -1,3 +1,17 @@
+uint8 ACCELERATION = 1
+uint8 REG_BRAKE = 2
+uint8 HANDBRAKE = 3
+uint8 mot_cur_type  
+
+uint8 SERVOS_OFF = 0
+uint8 SERVOS_ON  = 1
+uint8 servo_attach
+
+
+uint8 MOTORS_OFF = 0
+uint8 MOTORS_ON  = 1
+uint8 motor_arm
+
 float16 servo_front_left         # servo signal
 float16 servo_front_right        # servo signal
 float16 servo_rear_left          # servo signal
