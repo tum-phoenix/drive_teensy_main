@@ -12,29 +12,38 @@ using namespace phoenix_msgs;
 
 Subscriber<MotorTarget> *motor_target_Subscriber;
 
-void motor_target_callback(const MotorTarget& msg)
-{
+void motor_target_callback(const MotorTarget& msg) {
+    if (msg.motor_arm == MotorTarget::MOTORS_ON) {
+        if (msg.setpoint_type == MotorTarget::ACCELERATION) {
+            VescUartSetCurrent(msg.setpoint_rear_left, 0);
+            VescUartSetCurrent(msg.setpoint_rear_right, 1);
+        } else if (msg.setpoint_type == MotorTarget::REG_BRAKE) {
+            VescUartSetCurrentBrake(fabsf(msg.setpoint_rear_left), 0);
+            VescUartSetCurrentBrake(fabsf(msg.setpoint_rear_right), 1);
+        } else if (msg.setpoint_type == MotorTarget::HANDBRAKE) {
+            VescUartSetHandbrake(fabsf(msg.setpoint_rear_left), 0);
+            VescUartSetHandbrake(fabsf(msg.setpoint_rear_right), 1);
+        } else {
+            VescUartSetCurrent(0, 0);
+            VescUartSetCurrent(0, 1);
+        }
+    } else {
+        VescUartSetCurrent(0, 0);
+        VescUartSetCurrent(0, 1);
+    }
 
-  if (msg.current_rear_left > 500)  // if the value is rediculously high, it means its ment for braking
-  {
-    float cur_l = msg.current_rear_left - 1000;  // get the normal value back
-    float cur_r = msg.current_rear_right - 1000;  // get the normal value back
-    VescUartSetHandbrake(cur_l,0);
-    VescUartSetHandbrake(cur_r,1);
-  }
-  else 
-  {
-    VescUartSetCurrent(msg.current_rear_left,0);
-    VescUartSetCurrent(msg.current_rear_right,1);
-  }
-  // set servos
-  steering_servo_position_3 = steering_servo_offset_3 + (float)msg.servo_rear_left;
-  steering_servo_3.write(steering_servo_position_3);
+    if (msg.servo_attach == MotorTarget::SERVOS_ON) {
+        if (!steering_servo_3.attached()) steering_servo_3.attach(steering_servo_3_pin);
+        if (!steering_servo_4.attached()) steering_servo_4.attach(steering_servo_4_pin);
 
-  steering_servo_position_4 = steering_servo_offset_4 + (float)msg.servo_rear_right;
-  steering_servo_4.write(steering_servo_position_4);
+        steering_servo_3.write(steering_servo_offset_3 + msg.servo_rear_left);
+        steering_servo_4.write(steering_servo_offset_4 + msg.servo_rear_right);
+    } else {
+        steering_servo_3.detach();
+        steering_servo_4.detach();
+    }
 
-  last_motor_target_receive = millis();
+    last_motor_target_receive = systemClock->getMonotonic();
 }
 
 

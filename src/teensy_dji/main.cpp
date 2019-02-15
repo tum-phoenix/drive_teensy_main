@@ -18,69 +18,82 @@ static const char* nodeName = "org.phoenix.dji";
 static constexpr float framerate = 500;
 
 // common
-uint8_t bat_alm = 0;
+
+// node state
+const int node_state_update_rate_us = 1000000 / 20;     // in us -> 20Hz
+MonotonicTime next_node_state_update = MonotonicTime::fromMSec(0);
+uint8_t node_fault_code1 = 0;
+uint8_t node_fault_code2 = 0;
 
 // DJI
-int rc_update_rate = 150;
-MonotonicTime last_rc_update = MonotonicTime::fromMSec(0);
+//#define DJI_DEBUG_OUTPUT
+const int rc_update_rate_us = 1000000 / 50;             // in us -> 20Hz
+const int rc_timeout_us = 1000 * 100;                   // timeout if last rc command is 100ms old
+MonotonicTime next_rc_update = MonotonicTime::fromMSec(0);
+MonotonicTime last_rc_receive = MonotonicTime::fromMSec(0);
 DJI dji(Serial2);
 
 // Power
-int power_update_rate = 2;
-MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
+#define IGNORE_CELL4          // use this to run teensy without connected CAN-cable (it is used for V4 measurement)
+const int power_update_rate_us = 1000000 / 2;         // in us -> 2Hz
+MonotonicTime next_power_update = MonotonicTime::fromMSec(0);
 #define CELL3_PIN A5
 #define CELL2_PIN A11
 #define CELL1_PIN A10
 #define CELL4_PIN A0
 #define CURR_PIN  A1
-#define BAT_V_THRESH 0.5
 #define CELL_R1 14000.0
 #define CELL_R2 2000.0
 #define BAT_V_THRESH 0.5
 #define A_REF 3.3
-#define CURR_FACTOR 0.00161133/4 // 0R01 + 200V/V
+#define CURR_FACTOR (float)(0.00161133 / 4) // 0R01 + 200V/V
 #define V_ALM_FINAL 3.0
 
 // buzzer
 #define BUZZER_PIN 11
-uint8_t buf_state = 0;
-int buzzer_beep_rate = 2;
-MonotonicTime last_buzzer_update = MonotonicTime::fromMSec(0);
+const int buzzer_beep_rate_us = 1000000 / 2;              // in us -> 2Hz
+MonotonicTime next_buzzer_update = MonotonicTime::fromUSec(0);
+uint8_t battery_alarm = 0;
 
 // Buttons
-int button_update_rate = 10;
-MonotonicTime last_button_update = MonotonicTime::fromMSec(0);
+//#define BUTTONS_DEBUG_OUTPUT
+const int button_update_rate_us = 1000000 / 10;           // in us -> 10Hz
+MonotonicTime next_button_update = MonotonicTime::fromUSec(0);
 #define BUTTON_PIN A4
 uint8_t bitwise_buttons = 0;
 
 // Vesc
-int motor_state_update_rate = 50;
-MonotonicTime last_motor_state_update = MonotonicTime::fromMSec(0);
-struct bldcMeasure measuredVal_motor3;
-struct bldcMeasure measuredVal_motor4;
-float max_fet_temperature = 80;
+//#define VESC_DEBUG_OUTPUT
+const int motor_state_update_rate_us = 1000000 / 100;    // in us  -> 100Hz
+MonotonicTime next_motor_state_request_time = MonotonicTime::fromUSec(0);
+MonotonicTime next_motor_state_update_time = MonotonicTime::fromUSec(0);
+int motor_state_reply_duration_us = 3500;   // time between request and receive of a motor_state
+int vesc_motor_state_requests[2] = {0, 0};
+int vesc_motor_state_receives[2] = {0, 0};
+int vesc_motor_state_received[2] = {0, 0};
+int vesc_motor_state_alive[2] = {0, 0};     // is larger 0 if VESC is alive
+struct bldcMeasure measuredVal_motor3;      // rear left
+struct bldcMeasure measuredVal_motor4;      // rear right
 
 // servos for steering
 PWMServo steering_servo_3;
 PWMServo steering_servo_4;
-float steering_servo_position_3;
-float steering_servo_position_4;
 float steering_servo_offset_3 = 90;
 float steering_servo_offset_4 = 90;
 uint8_t steering_servo_3_pin = 5;
 uint8_t steering_servo_4_pin = 20;
 
 // motor target misc
-uint32_t last_motor_target_receive = 0;
-#define MOTOR_COM_TIMEOUT 500             // max accepted time between motor commands in ms
+MonotonicTime last_motor_target_receive = MonotonicTime::fromMSec(0);
+#define MOTOR_COM_TIMEOUT_US 1000 * 100     // max accepted time between motor commands in us
 
 // Pepperl+Fuchs / parallel parking
+const int par_lot_update_rate_us = 1000000 / 50;     // in us  -> 50Hz
+MonotonicTime next_par_lot_update = MonotonicTime::fromMSec(0);
 #define PF_LS_PIN 13
 float lot_size = 0;
 float last_lot_pos = 0;
-uint8_t publish_lot_msg = 0;
-int par_lot_update_rate = 50;
-MonotonicTime last_par_lot_update = MonotonicTime::fromMSec(0);
+uint8_t publish_lot_msg_to_send = 0;
 
 // odometry
 typedef struct {
@@ -100,14 +113,16 @@ bool check_arm_state();
 #include "Subscriber.h"
 
 void setup() {
-  pinMode(BUZZER_PIN,OUTPUT);
-  digitalWrite(BUZZER_PIN,1);
+  // init Buzzer Pin and turn Buzzer on during setup
+  pinMode(BUZZER_PIN, OUTPUT);
+  digitalWrite(BUZZER_PIN, 1);
+
   // setup UART port for vesc
-  
   Serial1.begin(230400);
   Serial3.begin(230400);
   SetSerialPort(&Serial1, &Serial3);
 
+  // setup UART for usb port as debug output
   Serial.begin(115200);
 
   // setup power
@@ -116,12 +131,12 @@ void setup() {
 
   // Pepperl+Fuchs
   //RISING/HIGH/CHANGE/LOW/FALLING
-  attachInterrupt (PF_LS_PIN, pf_ir_routine, CHANGE);
+  attachInterrupt(PF_LS_PIN, pf_ir_routine, CHANGE);
 
   // init LEDs
   initLeds();
 
-  // create a node
+  // create CAN node
   systemClock = &initSystemClock();
   canDriver = &initCanDriver();
   node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
@@ -145,19 +160,16 @@ void setup() {
   // setup DJI remote
   dji.begin(&Serial2);
 
-  digitalWrite(BUZZER_PIN,0);
+  // turn buzzer off after setup
+  digitalWrite(BUZZER_PIN, 0);
 
   // setup servos for steering
-  steering_servo_3.attach(steering_servo_3_pin);
-  steering_servo_4.attach(steering_servo_4_pin);
   steering_servo_offset_3 = configuration.steeringOff_RL + 90;
   steering_servo_offset_4 = configuration.steeringOff_RR + 90;
-  
-
 }
 
-void loop() {
 
+void loop() {
   // wait in cycle
   cycleWait(framerate);
 
@@ -170,71 +182,63 @@ void loop() {
   // toggle heartbeat
   toggleHeartBeat();
 
+  // update buzzer
   buzzer_routine();
 
-  if (millis() - last_motor_target_receive > MOTOR_COM_TIMEOUT) {
+  // in case no recent motor target current is received via CAN: turn them off
+  if ((systemClock->getMonotonic() - last_motor_target_receive).toUSec() > MOTOR_COM_TIMEOUT_US) {
     VescUartSetCurrent(0, 0);
     VescUartSetCurrent(0, 1);
+    steering_servo_3.detach();
+    steering_servo_4.detach();
   }
   
 }
 
 float v_veh() 
 {
-  float mean_rounds = ((float)measuredVal_motor3.erpm + (float)measuredVal_motor4.erpm)/14.; // RPM
-  mean_rounds /= 60.; // RPS
-  rear.speed = mean_rounds * 2. * M_PI * WHEEL_RADIUS_M; // m/s;
+  // erpm / 7 = RPM                 rounds per minute
+  // erpm / 7 / 60 = RPS            rounds per second
+  // erpm / 7 / 60 * (2 pi r) = m/s
+  float mean_speed = 0;
+  float num = 0;
+  if (vesc_motor_state_alive[0] > 0) {
+    mean_speed += (float)measuredVal_motor3.erpm / 7. / 60. * 2. * M_PI * WHEEL_RADIUS_M;
+    num ++;
+  }
+  if (vesc_motor_state_alive[1] > 0) {
+    mean_speed += (float)measuredVal_motor4.erpm / 7. / 60. * 2. * M_PI * WHEEL_RADIUS_M;
+    num ++;
+  }
+
+  if (num == 0) {
+    rear.speed = 0;
+  } else {
+    rear.speed = mean_speed / num;    // m/s;
+  }
   return rear.speed;
 }
 
 float x_veh()
 {
   v_veh();
-  static uint32_t lastupdate = 0;
-  static uint32_t thisupdate = 0;
-  lastupdate = thisupdate;
-  thisupdate = micros();
-  uint32_t dt = thisupdate-lastupdate; // micros
-  float ds = (rear.speed * (float)dt)/1000000.; // m
-  float temp = rear.dist_trav + ds;
-  rear.dist_trav = temp;
+  static MonotonicTime last_x_veh_update = systemClock->getMonotonic();
+  static MonotonicTime this_x_veh_update = systemClock->getMonotonic();
+  last_x_veh_update = this_x_veh_update;
+  this_x_veh_update = systemClock->getMonotonic();
+  float dt = (float)(this_x_veh_update - last_x_veh_update).toUSec();     // micros
+  float ds = (rear.speed * dt) / (float)1000000.;                         // m
+  rear.dist_trav += ds;
   return rear.dist_trav;
 }
 
 void buzzer_routine() {
-  if (bat_alm) {
-    if(last_buzzer_update +
-      MonotonicDuration::fromMSec(1000/(float)buzzer_beep_rate) <
-      systemClock->getMonotonic())
-   {
-      last_buzzer_update = systemClock->getMonotonic();
-      static uint8_t buzzer_mode=0;
+  if ((battery_alarm) && (systemClock->getMonotonic() > next_buzzer_update)) {
+     next_buzzer_update = systemClock->getMonotonic() + MonotonicDuration::fromUSec(buzzer_beep_rate_us);
+      static uint8_t buzzer_mode = 0;
       buzzer_mode ^= 1;
-      digitalWrite(BUZZER_PIN,buzzer_mode);
-   }
-  }
-}
-
-bool check_arm_state() {
-  // TODO
-  return true;
-}
-
-bool button_pressed(uint8_t pos) {
-  if (bitwise_buttons >> pos && 1) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-bool buttonrise(uint8_t pos) {
-  static bool cur_state[5] = {0,0,0,0,0};
-  static bool last_state[5] = {0,0,0,0,0};
-  cur_state[pos] = button_pressed(pos);
-  if(cur_state[pos] && !last_state[pos]) {
-    return true;
-  } else {
-    return false;
+      digitalWrite(BUZZER_PIN, buzzer_mode);
+  } else if (battery_alarm == 0) {
+      digitalWrite(BUZZER_PIN, 0);
   }
 }
