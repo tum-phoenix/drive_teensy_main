@@ -318,6 +318,12 @@ bool vesc_compute_receive(uint8_t serial_port)
 	return true;
 }
 
+uint8_t VescUartFlushAll(uint8_t serial_port)
+{
+	make_serial_available(serial_port);
+	Serial_flush(serial_port, Serial_available(serial_port));
+}
+
 uint8_t VescUartGetValue(bldcMeasure &values, uint8_t serial_port)
 {
 	static byte message_content[70];
@@ -334,7 +340,6 @@ uint8_t VescUartGetValue(bldcMeasure &values, uint8_t serial_port)
 		// Serial.println(msg_type);
 		// read message from ringbuffer into a byte array
 		transfer_data_from_ring_to_array(serial_port, message_content, msg_len - 1); // curser now before crc-bytes
-		setRGBled(255, 255, 0);
 
 		// flush crc and end-bytes
 		Serial_flush(serial_port, 2 + 1); // curser now behind end of message-container
