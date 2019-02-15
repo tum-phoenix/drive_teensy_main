@@ -1,7 +1,10 @@
-uint8 ACCELERATION = 1
-uint8 REG_BRAKE = 2
-uint8 HANDBRAKE = 3
-uint8 mot_cur_type  
+uint8 ACCELERATION  = 11
+uint8 REG_BRAKE     = 12
+uint8 HANDBRAKE     = 13
+uint8 ANGLE         = 20
+uint8 DUTY_CYCLE    = 30
+uint8 RPM           = 40
+uint8 setpoint_type  
 
 uint8 SERVOS_OFF = 0
 uint8 SERVOS_ON  = 1
@@ -16,7 +19,7 @@ float16 servo_front_left         # servo signal
 float16 servo_front_right        # servo signal
 float16 servo_rear_left          # servo signal
 float16 servo_rear_right         # servo signal
-float16 current_front_left      # motor_current
-float16 current_front_right     # motor_current
-float16 current_rear_left       # motor_current
-float16 current_rear_right      # motor_current
+float16 setpoint_front_left      # motor setpoint
+float16 setpoint_front_right     # motor setpoint
+float16 setpoint_rear_left       # motor setpoint
+float16 setpoint_rear_right      # motor setpoint

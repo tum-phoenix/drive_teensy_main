@@ -22,10 +22,6 @@ static struct Params
    float acFactor = 0.3;
    float steeringOff_FL = 0;
    float steeringOff_FR = 0;
-   float park_steer0 = 32;
-   float park_s_x0 = 0.25;
-   float park_x0 = 0.1;
-   float park_s_x1 = 0.25;
 
 } configuration;
 
@@ -61,10 +57,6 @@ class : public uavcan::IParamManager
         if (index == 7) { out_name = "acFactor[-]"; }
         if (index == 8) { out_name = "Servo Offset FL [deg]"; }
         if (index == 9) { out_name = "Servo Offset FR [deg]"; }
-        if (index == 10){ out_name = "Park Steer Angle"; }
-        if (index == 11){ out_name = "Park Steer Dist"; }
-        if (index == 12){ out_name = "Park Straight Dist"; }
-        if (index == 13){ out_name = "Park Steer 2 Dist"; }
     }
 
     void assignParamValue(const Name& name, const Value& value) override
@@ -160,42 +152,6 @@ class : public uavcan::IParamManager
                 Serial.println(configuration.steeringOff_FR);
             }
         }
-        else if (name == "Park Steer Angle")
-        {
-            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
-            {
-                configuration.park_steer0 = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Park Steer Angle to: ");
-                Serial.println(configuration.park_steer0);
-            }
-        }
-        else if (name == "Park Steer Dist")
-        {
-            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
-            {
-                configuration.park_s_x0 = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Park Steer Dist to: ");
-                Serial.println(configuration.park_s_x0);
-            }
-        }
-        else if (name == "Park Straight Dist")
-        {
-            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
-            {
-                configuration.park_x0 = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Park Straight Dist to: ");
-                Serial.println(configuration.park_x0);
-            }
-        }
-        else if (name == "Park Steer 2 Dist")
-        {
-            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
-            {
-                configuration.park_s_x1 = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Park Steer Dist 2 to: ");
-                Serial.println(configuration.park_s_x1);
-            }
-        }
         else 
         {
             Serial.println("Can't assign parameter!");
@@ -243,22 +199,6 @@ class : public uavcan::IParamManager
         else if (name == "Servo Offset FR [deg]")
         {
             out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.steeringOff_FR;
-        }
-        else if (name == "Park Steer 2 Dist")
-        {
-            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.park_s_x1;
-        }
-        else if (name == "Park Steer Dist")
-        {
-            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.park_s_x0;
-        }
-        else if (name == "Park Straight Dist")
-        {
-            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.park_x0;
-        }
-        else if (name == "Park Steer Angle")
-        {
-            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.park_steer0;
         }
         else
         {
@@ -347,30 +287,6 @@ class : public uavcan::IParamManager
             out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().steeringOff_FL;
             out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 15;
             out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -15;
-        }
-        else if (name == "Park Steer Angle")
-        {
-            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().park_steer0;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 40;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -40;
-        }
-        else if (name == "Park Steer Dist")
-        {
-            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().park_s_x0;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1.;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -1.;
-        }
-        else if (name == "Park Straight Dist")
-        {
-            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().park_s_x0;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1.;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -1.;
-        }
-        else if (name == "Park Steer 2 Dist")
-        {
-            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().park_s_x1;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1.;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = -1.;
         }
         else
         {
