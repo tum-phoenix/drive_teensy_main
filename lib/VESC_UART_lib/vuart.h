@@ -380,6 +380,16 @@ void VescUartSetCurrent(float current, int num)
 	PackSendPayload(payload, 5, num);
 }
 
+void VescUartSetMaxCurrent(float current, int num)
+{
+	int32_t index = 0;
+	uint8_t payload[5];
+
+	payload[index++] = COMM_SET_CUSTOM_MC_CONF_VALUES;
+	buffer_append_float32_auto(payload, current, &index);
+	PackSendPayload(payload, 5, num);
+}
+
 void VescUartSetCurrentBrake(float brakeCurrent, int num)
 {
 	int32_t index = 0;
