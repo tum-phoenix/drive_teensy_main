@@ -10,9 +10,9 @@ public:
 
     enum switchState {
         UNKNOWN = 0,
-        UP = 1,
+        DOWN = 1,
         MIDDLE = 2,
-        DOWN = 3
+        UP = 3
     };
 
     // constructor
@@ -113,6 +113,14 @@ public:
             default:
                 return UNKNOWN;
         }
+    }
+
+    uint8_t get_fail_state() {
+        return failSafe;
+    }
+
+    uint16_t get_lost_frames() {
+        return lostFrames;
     }
 
 private:
