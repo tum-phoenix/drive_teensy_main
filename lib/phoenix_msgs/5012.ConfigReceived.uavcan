@@ -1,0 +1,3 @@
+uint8 VESC_MOTOR_CONFIG = 1
+uint8 VESC_APP_CONFIG = 2
+uint8 received_config
