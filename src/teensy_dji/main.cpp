@@ -12,7 +12,7 @@
 static constexpr uint32_t nodeID = 102;
 static constexpr uint8_t swVersion = 1;
 static constexpr uint8_t hwVersion = 1;
-static const char* nodeName = "org.phoenix.dji";
+static const char *nodeName = "org.phoenix.dji";
 
 // application settings
 static constexpr float framerate = 500;
@@ -97,148 +97,149 @@ uint8_t publish_lot_msg_to_send = 0;
 
 // odometry
 typedef struct {
-  float dist_trav;  // m
-  float speed;      // m/s
+    float dist_trav;  // m
+    float speed;      // m/s
 } odometry_t;
 odometry_t rear;
 
 #define WHEEL_RADIUS_M 0.033
 
 float v_veh();
+
 float x_veh();
+
 void buzzer_routine();
+
 bool check_arm_state();
 
 #include "Publisher.h"
 #include "Subscriber.h"
 
 void setup() {
-  // init Buzzer Pin and turn Buzzer on during setup
-  pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, 1);
+    // init Buzzer Pin and turn Buzzer on during setup
+    pinMode(BUZZER_PIN, OUTPUT);
+    digitalWrite(BUZZER_PIN, 1);
 
-  // setup UART port for vesc
-  Serial1.begin(230400);
-  Serial3.begin(230400);
-  SetSerialPort(&Serial1, &Serial3);
+    // setup UART port for vesc
+    Serial1.begin(230400);
+    Serial3.begin(230400);
+    SetSerialPort(&Serial1, &Serial3);
 
-  // setup UART for usb port as debug output
-  Serial.begin(115200);
+    // setup UART for usb port as debug output
+    Serial.begin(115200);
 
-  // setup power
-  analogReadRes(12);
-  analogReadAveraging(4);
+    // setup power
+    analogReadRes(12);
+    analogReadAveraging(4);
 
-  // Pepperl+Fuchs
-  //RISING/HIGH/CHANGE/LOW/FALLING
-  attachInterrupt(PF_LS_PIN, pf_ir_routine, CHANGE);
+    // Pepperl+Fuchs
+    //RISING/HIGH/CHANGE/LOW/FALLING
+    attachInterrupt(PF_LS_PIN, pf_ir_routine, CHANGE);
 
-  // init LEDs
-  initLeds();
+    // init LEDs
+    initLeds();
 
-  // create CAN node
-  systemClock = &initSystemClock();
-  canDriver = &initCanDriver();
-  node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
-  initNode(node, nodeID, nodeName, swVersion, hwVersion);
+    // create CAN node
+    systemClock = &initSystemClock();
+    canDriver = &initCanDriver();
+    node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
+    initNode(node, nodeID, nodeName, swVersion, hwVersion);
 
-  // init publisher
-  initPublisher(node);
+    // init publisher
+    initPublisher(node);
 
-  // init subscriber
-  initSubscriber(node);
+    // init subscriber
+    initSubscriber(node);
 
-  // set up filters
-  configureCanAcceptanceFilters(*node);
+    // set up filters
+    configureCanAcceptanceFilters(*node);
 
-  // init parameter
-  initParameter(node);
+    // init parameter
+    initParameter(node);
 
-  // start up node
-  node->setModeOperational();
+    // start up node
+    node->setModeOperational();
 
-  // setup DJI remote
-  dji.begin(&Serial2);
+    // setup DJI remote
+    dji.begin(&Serial2);
 
-  // turn buzzer off after setup
-  digitalWrite(BUZZER_PIN, 0);
+    // turn buzzer off after setup
+    digitalWrite(BUZZER_PIN, 0);
 
-  // setup servos for steering
-  steering_servo_offset_3 = configuration.steeringOff_RL + 90;
-  steering_servo_offset_4 = configuration.steeringOff_RR + 90;
+    // setup servos for steering
+    steering_servo_offset_3 = configuration.steeringOff_RL + 90;
+    steering_servo_offset_4 = configuration.steeringOff_RR + 90;
 }
 
 
 void loop() {
-  // wait in cycle
-  cycleWait(framerate);
+    // wait in cycle
+    cycleWait(framerate);
 
-  // do some CAN stuff
-  cycleNode(node);
+    // do some CAN stuff
+    cycleNode(node);
 
-  // cycle publisher
-  cyclePublisher(dji);
+    // cycle publisher
+    cyclePublisher(dji);
 
-  // toggle heartbeat
-  toggleHeartBeat();
+    // toggle heartbeat
+    toggleHeartBeat();
 
-  // update buzzer
-  buzzer_routine();
+    // update buzzer
+    buzzer_routine();
 
-  // in case no recent motor target current is received via CAN: turn them off
-  if ((systemClock->getMonotonic() - last_motor_target_receive).toUSec() > MOTOR_COM_TIMEOUT_US) {
-    VescUartSetCurrent(0, 0);
-    VescUartSetCurrent(0, 1);
-    steering_servo_3.detach();
-    steering_servo_4.detach();
-  }
-  
+    // in case no recent motor target current is received via CAN: turn them off
+    if ((systemClock->getMonotonic() - last_motor_target_receive).toUSec() > MOTOR_COM_TIMEOUT_US) {
+        VescUartSetCurrent(0, 0);
+        VescUartSetCurrent(0, 1);
+        steering_servo_3.detach();
+        steering_servo_4.detach();
+    }
+
 }
 
-float v_veh() 
-{
-  // erpm / 7 = RPM                 rounds per minute
-  // erpm / 7 / 60 = RPS            rounds per second
-  // erpm / 7 / 60 * (2 pi r) = m/s
-  float mean_speed = 0;
-  float num = 0;
-  if (vesc_motor_state_alive[0] > 0) {
-    mean_speed += (float)measuredVal_motor3.erpm / 7. / 60. * 2. * M_PI * WHEEL_RADIUS_M;
-    num ++;
-  }
-  if (vesc_motor_state_alive[1] > 0) {
-    mean_speed += (float)measuredVal_motor4.erpm / 7. / 60. * 2. * M_PI * WHEEL_RADIUS_M;
-    num ++;
-  }
+float v_veh() {
+    // erpm / 7 = RPM                 rounds per minute
+    // erpm / 7 / 60 = RPS            rounds per second
+    // erpm / 7 / 60 * (2 pi r) = m/s
+    float mean_speed = 0;
+    float num = 0;
+    if (vesc_motor_state_alive[0] > 0) {
+        mean_speed += (float) measuredVal_motor3.erpm / 7. / 60. * 2. * M_PI * WHEEL_RADIUS_M;
+        num++;
+    }
+    if (vesc_motor_state_alive[1] > 0) {
+        mean_speed += (float) measuredVal_motor4.erpm / 7. / 60. * 2. * M_PI * WHEEL_RADIUS_M;
+        num++;
+    }
 
-  if (num == 0) {
-    rear.speed = 0;
-  } else {
-    rear.speed = mean_speed / num;    // m/s;
-  }
-  return rear.speed;
+    if (num == 0) {
+        rear.speed = 0;
+    } else {
+        rear.speed = mean_speed / num;    // m/s;
+    }
+    return rear.speed;
 }
 
-float x_veh()
-{
-  v_veh();
-  static MonotonicTime last_x_veh_update = systemClock->getMonotonic();
-  static MonotonicTime this_x_veh_update = systemClock->getMonotonic();
-  last_x_veh_update = this_x_veh_update;
-  this_x_veh_update = systemClock->getMonotonic();
-  float dt = (float)(this_x_veh_update - last_x_veh_update).toUSec();     // micros
-  float ds = (rear.speed * dt) / (float)1000000.;                         // m
-  rear.dist_trav += ds;
-  return rear.dist_trav;
+float x_veh() {
+    v_veh();
+    static MonotonicTime last_x_veh_update = systemClock->getMonotonic();
+    static MonotonicTime this_x_veh_update = systemClock->getMonotonic();
+    last_x_veh_update = this_x_veh_update;
+    this_x_veh_update = systemClock->getMonotonic();
+    float dt = (float) (this_x_veh_update - last_x_veh_update).toUSec();     // micros
+    float ds = (rear.speed * dt) / (float) 1000000.;                         // m
+    rear.dist_trav += ds;
+    return rear.dist_trav;
 }
 
 void buzzer_routine() {
-  if ((battery_alarm) && (systemClock->getMonotonic() > next_buzzer_update)) {
-     next_buzzer_update = systemClock->getMonotonic() + MonotonicDuration::fromUSec(buzzer_beep_rate_us);
-      static uint8_t buzzer_mode = 0;
-      buzzer_mode ^= 1;
-      digitalWrite(BUZZER_PIN, buzzer_mode);
-  } else if (battery_alarm == 0) {
-      digitalWrite(BUZZER_PIN, 0);
-  }
+    if ((battery_alarm) && (systemClock->getMonotonic() > next_buzzer_update)) {
+        next_buzzer_update = systemClock->getMonotonic() + MonotonicDuration::fromUSec(buzzer_beep_rate_us);
+        static uint8_t buzzer_mode = 0;
+        buzzer_mode ^= 1;
+        digitalWrite(BUZZER_PIN, buzzer_mode);
+    } else if (battery_alarm == 0) {
+        digitalWrite(BUZZER_PIN, 0);
+    }
 }
