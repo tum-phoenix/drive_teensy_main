@@ -145,3 +145,24 @@ void buffer_append_float32_auto(uint8_t* buffer, float number, int32_t *index) {
 
 	buffer_append_uint32(buffer, res, index);
 }
+
+
+float buffer_get_float32_auto(const uint8_t *buffer, int32_t *index) {
+	uint32_t res = buffer_get_uint32(buffer, index);
+
+	int e = (res >> 23) & 0xFF;
+	uint32_t sig_i = res & 0x7FFFFF;
+	bool neg = res & (1 << 31);
+
+	float sig = 0.0;
+	if (e != 0 || sig_i != 0) {
+		sig = (float)sig_i / (8388608.0 * 2.0) + 0.5;
+		e -= 126;
+	}
+
+	if (neg) {
+		sig = -sig;
+	}
+
+	return ldexpf(sig, e);
+}

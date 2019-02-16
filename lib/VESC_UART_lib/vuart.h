@@ -6,6 +6,8 @@
 #include "datatypes.h"
 #include "buffer.h"
 
+//#define VESC_UART_debug_output
+
 // SetSerialPort sets the serial to communicate with the VESC
 // Multiple ports possible
 void SetSerialPort(HardwareSerial *_serialPort1, HardwareSerial *_serialPort2, HardwareSerial *_serialPort3,
@@ -102,7 +104,17 @@ int PackSendPayload(uint8_t *payload, int lenPay, int num) {
 }
 
 void vesc_send_status_request(uint8_t serial_port) {
+    uint8_t command[1] = {COMM_GET_VALUES_SHORT};
+    PackSendPayload(command, 1, serial_port);
+}
+
+void vesc_send_status_request_long(uint8_t serial_port) {
     uint8_t command[1] = {COMM_GET_VALUES};
+    PackSendPayload(command, 1, serial_port);
+}
+
+void vesc_send_custom_config_request(uint8_t serial_port) {
+    uint8_t command[1] = {COMM_GET_CUSTOM_MC_CONF_VALUES};
     PackSendPayload(command, 1, serial_port);
 }
 
@@ -240,33 +252,46 @@ uint8_t find_status_message(uint8_t serial_port) {
 
     // implementation 1
     static uint8_t msg_len = 0;
+#ifdef VESC_UART_debug_output
+    Serial.print("Serial_available");
+    Serial.println(Serial_available(serial_port));
+#endif
+
     while (Serial_available(serial_port)) {
-        // Serial.print("serial available ");
-        // Serial.print(Serial_available(serial_port));
-        // Serial.print("  msg_state ");
-        // Serial.println(msg_state[serial_port]);
+#ifdef VESC_UART_debug_output
+        Serial.print("> ");
+        Serial.println(msg_state[serial_port]);
+        Serial.print(" >>");
+        Serial.println(Serial_peek(serial_port, 0));
+#endif
         if (msg_state[serial_port] == OUT) // curser before Start-Byte
         {                                   // waiting for start byte '2'
             msg_state[serial_port] = (Serial_read(serial_port) == 2) ? START : OUT;
         } else if (msg_state[serial_port] == START &&
-                   Serial_available(serial_port) >= 2) // curser before Payload_Length-Byte
+                   Serial_available(serial_port) >= 2) // courser before Payload_Length-Byte
         {                                                                                // identify type and discard message if type is not COMM_GET_VALUES
-            msg_state[serial_port] = (Serial_peek(serial_port, 1) == COMM_GET_VALUES) ? TYPE : OUT;
-        } else if (msg_state[serial_port] == TYPE) // curser before Payload_Length-Byte
+            msg_state[serial_port] = (
+                    Serial_peek(serial_port, 1) == COMM_GET_VALUES ||
+                    Serial_peek(serial_port, 1) == COMM_GET_VALUES_SHORT ||
+                    Serial_peek(serial_port, 1) == COMM_GET_CUSTOM_MC_CONF_VALUES) ? TYPE : OUT;
+        } else if (msg_state[serial_port] == TYPE) // courser before Payload_Length-Byte
         {                                         // message type is validated, now get length
             msg_len = Serial_peek(serial_port);
             msg_state[serial_port] = SIZE;
         } else if ((msg_state[serial_port] == SIZE) &&
-                   (Serial_available(serial_port) >= (1 + msg_len + 2))) // curser before Payload_Length-Byte
+                   (Serial_available(serial_port) >= (1 + msg_len + 2))) // courser before Payload_Length-Byte
         {
 
-            // Serial.print("  msg_state[serial_port] == SIZE ");
+#ifdef VESC_UART_debug_output
+            Serial.print(">> message received");
             for (uint8_t i = 0; i <= msg_len + 1 + 2 + 1; i++) {
-                // Serial.print((uint8_t)Serial_peek(serial_port, i));
-                // Serial.print(" ");
+                Serial.print((uint8_t)Serial_peek(serial_port, i));
+                Serial.print(" ");
             }
-            // Serial.println("end");
-            // check if End-Byte is valid ; curser is before Payload_Length-Byte
+            Serial.println("end");
+#endif
+
+            // check if End-Byte is valid ; courser is before Payload_Length-Byte
             /*
             if (Serial_peek(serial_port, 1 + msg_len + 2) != 3)
             {
@@ -274,27 +299,33 @@ uint8_t find_status_message(uint8_t serial_port) {
                 continue;
             }
             */
+#ifdef VESC_UART_debug_output
+            Serial.print("  end byte ignored ");
+#endif
 
-            // Serial.print("  endbyte okay ");
-            // validate via crc ; curser is before Payload_Length-Byte
+            // validate via crc ; courser is before Payload_Length-Byte
             uint16_t crc_comp = (((uint16_t) Serial_peek(serial_port, 1 + msg_len) << 8) & 0xFF00) +
                                 ((uint16_t) Serial_peek(serial_port, 1 + msg_len + 1) & 0xFF);
             if (crc_comp == calculate_crc_from_ring_buffer(serial_port, 1, msg_len)) {
-                Serial_flush(serial_port, 1); // move curser before Type-Byte, delete length byte
+                Serial_flush(serial_port, 1);       // move courser before Type-Byte, delete length byte
                 msg_state[serial_port] = OUT;
 
-                // Serial.print("message received ---------- ");
-                // Serial.println(msg_len);
+#ifdef VESC_UART_debug_output
+                Serial.print("message received ---------- ");
+                Serial.println(msg_len);
+#endif
                 return msg_len;
             } else {
-                // Serial.print("  crc not okay ");
+#ifdef VESC_UART_debug_output
+                Serial.print("  crc not okay ");
+#endif
                 msg_state[serial_port] = OUT;
                 continue;
             }
         } else
             break;
     }
-    return false;
+    return 0;
 }
 
 bool vesc_compute_receive(uint8_t serial_port) {
@@ -315,55 +346,102 @@ uint8_t VescUartGetValue(bldcMeasure &values, uint8_t serial_port) {
     uint8_t msg_type = 0;
 
     if (msg_len) {
-        // Serial.print("len");
-        // read message type from Type-Byte
-        msg_type = Serial_read(serial_port); // curser before payload
-        // Serial.println(msg_type);
+        msg_type = Serial_read(serial_port);                    // courser before payload
+#ifdef VESC_UART_debug_output
+        Serial.print("> type ");
+        Serial.print(msg_type);
+        Serial.print(" ");
+        Serial.print(msg_len - 1);
+#endif
         // read message from ringbuffer into a byte array
-        transfer_data_from_ring_to_array(serial_port, message_content, msg_len - 1); // curser now before crc-bytes
+        transfer_data_from_ring_to_array(serial_port, message_content, msg_len - (uint8_t)1);
+                                                                // courser now before crc-bytes
 
         // flush crc and end-bytes
-        Serial_flush(serial_port, 2 + 1); // curser now behind end of message-container
+        Serial_flush(serial_port, 2 + 1);                       // courser now behind end of message-container
 
         // get the pointer to the first byte of this array
         uint8_t *message = message_content;
         int32_t ind = 0;
 
-        values.tempFetFiltered = buffer_get_float16(message, 1e1,
-                                                    &ind);     // buffer_append_float16(send_buffer, mc_interface_temp_fet_filtered(), 1e1, &ind);
-        values.tempMotorFiltered = buffer_get_float16(message, 1e1,
-                                                      &ind);   // buffer_append_float16(send_buffer, mc_interface_temp_motor_filtered(), 1e1, &ind);
-        values.avgMotorCurrent = buffer_get_float32(message, 100.0,
-                                                    &ind);   // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_motor_current(), 1e2, &ind);
-        values.avgInputCurrent = buffer_get_float32(message, 100.0,
-                                                    &ind);   // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_input_current(), 1e2, &ind);
-        values.avgId = buffer_get_float32(message, 1e2,
-                                          &ind);                 // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_id(), 1e2, &ind);
-        values.avgIq = buffer_get_float32(message, 1e2,
-                                          &ind);                 // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_iq(), 1e2, &ind);
-        values.dutyNow = buffer_get_float16(message, 1000.0,
-                                            &ind);             // buffer_append_float16(send_buffer, mc_interface_get_duty_cycle_now(), 1e3, &ind);
-        values.erpm = buffer_get_float32(message, 1.0,
-                                         &ind);                 // buffer_append_float32(send_buffer, mc_interface_get_rpm(), 1e0, &ind);
-        values.inpVoltage = buffer_get_float16(message, 10.0,
-                                               &ind);         // buffer_append_float16(send_buffer, GET_INPUT_VOLTAGE(), 1e1, &ind);
-        values.ampHours = buffer_get_float32(message, 10000.0,
-                                             &ind);         // buffer_append_float32(send_buffer, mc_interface_get_amp_hours(false), 1e4, &ind);
-        values.ampHoursCharged = buffer_get_float32(message, 10000.0,
-                                                    &ind); // buffer_append_float32(send_buffer, mc_interface_get_amp_hours_charged(false), 1e4, &ind);
-        values.wattHours = buffer_get_float32(message, 1e4,
-                                              &ind);             // buffer_append_float32(send_buffer, mc_interface_get_watt_hours(false), 1e4, &ind);
-        values.watthoursCharged = buffer_get_float32(message, 1e4,
-                                                     &ind);    // buffer_append_float32(send_buffer, mc_interface_get_watt_hours_charged(false), 1e4, &ind);
-        values.tachometer = buffer_get_int32(message,
-                                             &ind);                 // buffer_append_int32(send_buffer, mc_interface_get_tachometer_value(false), &ind);
-        values.tachometerAbs = buffer_get_int32(message,
-                                                &ind);                 // buffer_append_int32(send_buffer, mc_interface_get_tachometer_abs_value(false), &ind);
-        values.faultCode = message[ind];                                     // send_buffer[ind++] = mc_interface_get_fault();
-        // buffer_append_float32(send_buffer, mc_interface_get_pid_pos_now(), 1e6, &ind);
-        // send_buffer[ind++] = app_get_configuration()->controller_id;
+        switch (msg_type) {
+            case COMM_GET_VALUES: {
+#ifdef VESC_UART_debug_output
+                Serial.println("> COMM_GET_VALUES ");
+#endif
+                values.tempFetFiltered = buffer_get_float16(message, 1e1, &ind);
+                    // buffer_append_float16(send_buffer, mc_interface_temp_fet_filtered(), 1e1, &ind);
+                values.tempMotorFiltered = buffer_get_float16(message, 1e1, &ind);
+                    // buffer_append_float16(send_buffer, mc_interface_temp_motor_filtered(), 1e1, &ind);
+                values.avgMotorCurrent = buffer_get_float32(message, 100.0, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_motor_current(), 1e2, &ind);
+                values.avgInputCurrent = buffer_get_float32(message, 100.0, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_input_current(), 1e2, &ind);
+                values.avgId = buffer_get_float32(message, 1e2, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_id(), 1e2, &ind);
+                values.avgIq = buffer_get_float32(message, 1e2, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_read_reset_avg_iq(), 1e2, &ind);
+                values.dutyNow = buffer_get_float16(message, 1000.0, &ind);
+                    // buffer_append_float16(send_buffer, mc_interface_get_duty_cycle_now(), 1e3, &ind);
+                values.erpm = (long)buffer_get_float32(message, 1.0, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_get_rpm(), 1e0, &ind);
+                values.inpVoltage = buffer_get_float16(message, 10.0, &ind);
+                    // buffer_append_float16(send_buffer, GET_INPUT_VOLTAGE(), 1e1, &ind);
+                values.ampHours = buffer_get_float32(message, 10000.0, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_get_amp_hours(false), 1e4, &ind);
+                values.ampHoursCharged = buffer_get_float32(message, 10000.0, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_get_amp_hours_charged(false), 1e4, &ind);
+                values.wattHours = buffer_get_float32(message, 1e4, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_get_watt_hours(false), 1e4, &ind);
+                values.watthoursCharged = buffer_get_float32(message, 1e4, &ind);
+                    // buffer_append_float32(send_buffer, mc_interface_get_watt_hours_charged(false), 1e4, &ind);
+                values.tachometer = buffer_get_int32(message, &ind);
+                    // buffer_append_int32(send_buffer, mc_interface_get_tachometer_value(false), &ind);
+                values.tachometerAbs = buffer_get_int32(message, &ind);
+                    // buffer_append_int32(send_buffer, mc_interface_get_tachometer_abs_value(false), &ind);
+                values.faultCode = message[ind];
+                    // send_buffer[ind++] = mc_interface_get_fault();
+                return msg_type;
+            }
+            case COMM_GET_VALUES_SHORT: {
+#ifdef VESC_UART_debug_output
+                Serial.println("> COMM_GET_VALUES_SHORT ");
+#endif
+                values.avgMotorCurrent = buffer_get_float32(message, 100.0, &ind);
+                    //buffer_append_float32(send_buffer, mc_interface_read_reset_avg_motor_current(), 1e2, &ind);
+                values.avgInputCurrent = buffer_get_float32(message, 100.0, &ind);
+                    //buffer_append_float32(send_buffer, mc_interface_read_reset_avg_input_current(), 1e2, &ind);
+                values.dutyNow = buffer_get_float16(message, 1000.0, &ind);
+                    //buffer_append_float16(send_buffer, mc_interface_get_duty_cycle_now(), 1e3, &ind);
+                values.erpm = (long)buffer_get_float32(message, 1.0, &ind);
+                    //buffer_append_float32(send_buffer, mc_interface_get_rpm(), 1e0, &ind);
+                values.inpVoltage = buffer_get_float16(message, 10.0, &ind);
+                    //buffer_append_float16(send_buffer, GET_INPUT_VOLTAGE(), 1e1, &ind);
+                return msg_type;
+            }
+            case COMM_GET_CUSTOM_MC_CONF_VALUES: {
+#ifdef VESC_UART_debug_output
+                Serial.println("> COMM_GET_CUSTOM_MC_CONF_VALUES ");
+#endif
+                values.min_current = buffer_get_float32_auto(message, &ind);
+                    //buffer_append_float32_auto(send_buffer, mcconf.l_current_min, &ind);
+                values.max_current = buffer_get_float32_auto(message, &ind);
+                    //buffer_append_float32_auto(send_buffer, mcconf.l_current_max, &ind);
+
+                values.min_erpm = buffer_get_float32_auto(message, &ind);
+                    //buffer_append_float32_auto(send_buffer, mcconf.l_min_erpm, &ind);
+                values.max_erpm = buffer_get_float32_auto(message, &ind);
+                    //buffer_append_float32_auto(send_buffer, mcconf.l_max_erpm, &ind);
+                return msg_type;
+            }
+            default: {
+#ifdef VESC_UART_debug_output
+                Serial.println("> not implemented");
+#endif
+                return 0;
+            }
+        }
     }
-    return msg_type;
 }
 
 void VescUartSetCurrent(float current, int num) {
@@ -375,13 +453,17 @@ void VescUartSetCurrent(float current, int num) {
     PackSendPayload(payload, 5, num);
 }
 
-void VescUartSetMaxCurrent(float current, int num) {
+
+void Vesc_send_custom_config(float current_acc, float current_brk, float erpm_min, float erpm_max, int num) {
     int32_t index = 0;
-    uint8_t payload[5];
+    uint8_t payload[17];
 
     payload[index++] = COMM_SET_CUSTOM_MC_CONF_VALUES;
-    buffer_append_float32_auto(payload, current, &index);
-    PackSendPayload(payload, 5, num);
+    buffer_append_float32_auto(payload, current_brk, &index);
+    buffer_append_float32_auto(payload, current_acc, &index);
+    buffer_append_float32_auto(payload, erpm_min, &index);
+    buffer_append_float32_auto(payload, erpm_max, &index);
+    PackSendPayload(payload, 17, num);
 }
 
 void VescUartSetCurrentBrake(float brakeCurrent, int num) {
