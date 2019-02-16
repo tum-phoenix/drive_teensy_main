@@ -122,12 +122,12 @@ void cyclePublisher_Actor_Comms(actor_comm_t data)
 {
   MotorTarget msg;
   msg.motor_arm = actor_comms.mot_arm;
-  msg.mot_cur_type = actor_comms.mot_cur_type;
+  msg.setpoint_type = actor_comms.mot_cur_type;
   msg.servo_attach = actor_comms.servo_arm;
-  msg.current_front_left = data.motor_amps[FRONT_LEFT];
-  msg.current_front_right = data.motor_amps[FRONT_RIGHT];
-  msg.current_rear_left = data.motor_amps[REAR_LEFT];
-  msg.current_rear_right = data.motor_amps[REAR_RIGHT];
+  msg.setpoint_front_left = data.motor_amps[FRONT_LEFT];
+  msg.setpoint_front_right = data.motor_amps[FRONT_RIGHT];
+  msg.setpoint_rear_left = data.motor_amps[REAR_LEFT];
+  msg.setpoint_rear_right = data.motor_amps[REAR_RIGHT];
   
   msg.servo_front_left = data.servo_angles[FRONT_LEFT];
   msg.servo_front_right = data.servo_angles[FRONT_RIGHT];
