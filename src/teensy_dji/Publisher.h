@@ -170,7 +170,7 @@ void cyclePublisher(DJI &dji) {
 
     // Motor State:
     // before the motor state can be received it has to be requested. After a request it takes about 7ms for the reply
-    if (systemClock->getMonotonic() > next_motor_state_request_time) {
+    if ((systemClock->getMonotonic() > next_motor_state_request_time) && (custom_vesc_config_set)) {
         // clean up input buffer since we are now only interested into the new message
         VescUartFlushAll(0);
         VescUartFlushAll(1);
@@ -210,6 +210,18 @@ void cyclePublisher(DJI &dji) {
         Serial.print(vesc_motor_state_requests[1] - 1);
         Serial.print("\trec: \t");
         Serial.println(vesc_motor_state_receives[1]);
+
+        Serial.println("Motor 3:");
+        Serial.print("current min ");  Serial.println(measuredVal_motor3.min_current);
+        Serial.print("current max ");  Serial.println(measuredVal_motor3.max_current);
+        Serial.print("erpm min ");  Serial.println(measuredVal_motor3.min_erpm);
+        Serial.print("erpm max ");  Serial.println(measuredVal_motor3.max_erpm);
+
+        Serial.println("Motor 4:");
+        Serial.print("current min ");  Serial.println(measuredVal_motor4.min_current);
+        Serial.print("current max ");  Serial.println(measuredVal_motor4.max_current);
+        Serial.print("erpm min ");  Serial.println(measuredVal_motor4.min_erpm);
+        Serial.print("erpm max ");  Serial.println(measuredVal_motor4.max_erpm);
 #endif
     }
 

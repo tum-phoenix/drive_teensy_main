@@ -75,6 +75,15 @@ int vesc_motor_state_alive[2] = {0, 0};     // is larger 0 if VESC is alive
 struct bldcMeasure measuredVal_motor3;      // rear left
 struct bldcMeasure measuredVal_motor4;      // rear right
 
+bool custom_vesc_config_set = 0;
+float min_current = -6.0;
+float max_current = 6.0;
+float min_erpm = -20000;
+float max_erpm = 20000;
+
+int vesc_com_start_delay_ms = 5000;
+
+
 // servos for steering
 PWMServo steering_servo_3;
 PWMServo steering_servo_4;
@@ -173,6 +182,29 @@ void setup() {
 
 
 void loop() {
+    if (!custom_vesc_config_set && (systemClock->getMonotonic().toUSec() > 1000 * vesc_com_start_delay_ms)) {
+        // TODO: move this to a better place. e.g. CAN subscriber
+        // send custom VESC config
+        Vesc_send_custom_config(min_current, max_current, min_erpm, max_erpm, 0);
+        Vesc_send_custom_config(min_current, max_current, min_erpm, max_erpm, 1);
+
+        // delay for VESCs to write settings
+        delay(250);
+
+        // validate settings
+        VescUartFlushAll(0);
+        VescUartFlushAll(1);
+        vesc_send_custom_config_request(0);
+        vesc_send_custom_config_request(1);
+
+        // wait for the message
+        delay(10);
+        custom_vesc_config_set = true;
+        if (VescUartGetValue(measuredVal_motor3, 0) == 0) custom_vesc_config_set = false;
+        if (VescUartGetValue(measuredVal_motor4, 1) == 0) custom_vesc_config_set = false;
+    }
+
+
     // wait in cycle
     cycleWait(framerate);
 
