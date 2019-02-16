@@ -423,6 +423,7 @@ uint8_t VescUartGetValue(bldcMeasure &values, uint8_t serial_port) {
 #ifdef VESC_UART_debug_output
                 Serial.println("> COMM_GET_CUSTOM_MC_CONF_VALUES ");
 #endif
+                /*
                 values.min_current = buffer_get_float32_auto(message, &ind);
                     //buffer_append_float32_auto(send_buffer, mcconf.l_current_min, &ind);
                 values.max_current = buffer_get_float32_auto(message, &ind);
@@ -432,6 +433,7 @@ uint8_t VescUartGetValue(bldcMeasure &values, uint8_t serial_port) {
                     //buffer_append_float32_auto(send_buffer, mcconf.l_min_erpm, &ind);
                 values.max_erpm = buffer_get_float32_auto(message, &ind);
                     //buffer_append_float32_auto(send_buffer, mcconf.l_max_erpm, &ind);
+                */
                 return msg_type;
             }
             default: {

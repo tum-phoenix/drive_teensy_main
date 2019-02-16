@@ -8,6 +8,7 @@
 #include "phoenix_msgs/Battery.hpp"
 #include "phoenix_msgs/ParallelParking.hpp"
 #include "phoenix_msgs/UserButtons.hpp"
+#include "phoenix_msgs/ConfigReceived.hpp"
 #include "phoenix_can_shield.h"
 #include "vuart.h"
 #include <Filters.h>
@@ -35,6 +36,7 @@ Publisher<NodeState> *state_Publisher;
 Publisher<Battery> *battery_Publisher;
 Publisher<ParallelParking> *ppark_Publisher;
 Publisher<UserButtons> *user_buttons_Publisher;
+Publisher<ConfigReceived> *conf_rec_Publisher;
 
 // additional configuration
 static uint8_t motor3_position = MotorState::POS_REAR_LEFT;
@@ -49,6 +51,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node) {
     battery_Publisher = new Publisher<Battery>(*node);
     ppark_Publisher = new Publisher<ParallelParking>(*node);
     user_buttons_Publisher = new Publisher<UserButtons>(*node);
+    conf_rec_Publisher = new Publisher<ConfigReceived>(*node);
 
     // initiliaze publishers
     if (rc_Publisher->init() < 0) {
@@ -69,6 +72,9 @@ void initPublisher(Node<NodeMemoryPoolSize> *node) {
     if (user_buttons_Publisher->init() < 0) {
         Serial.println("Unable to initialize user_buttons_Publisher!");
     }
+    if (conf_rec_Publisher->init() < 0) {
+        Serial.println("Unable to initialize conf_rec_Publisher!");
+    }
 
     // set TX timeout
     rc_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
@@ -77,6 +83,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node) {
     battery_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
     ppark_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
     user_buttons_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+    conf_rec_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
 // cycle all publisher
@@ -401,9 +408,16 @@ void cyclePublisher(DJI &dji) {
     }
 }
 
+void Publisher_config_received(uint8_t type) {
+    ConfigReceived msg;
+    msg.received_config = type;
 
-#endif
-
+    if (conf_rec_Publisher->broadcast(msg) < 0) {
+            Serial.println("Error while broadcasting config receive message");
+        } else {
+            digitalWrite(trafficLedPin, HIGH);
+        }
+}
 
 void pf_ir_routine() {
     static float start_odom;
@@ -420,3 +434,5 @@ void pf_ir_routine() {
         }
     }
 }
+
+#endif

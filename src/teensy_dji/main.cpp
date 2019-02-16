@@ -64,6 +64,10 @@ uint8_t bitwise_buttons = 0;
 
 // Vesc
 //#define VESC_DEBUG_OUTPUT
+
+#define MOT_POL_NUM 14
+#define MOTOR_Y_WIND_FACTOR 1.7
+
 const int motor_state_update_rate_us = 1000000 / 100;    // in us  -> 100Hz
 MonotonicTime next_motor_state_request_time = MonotonicTime::fromUSec(0);
 MonotonicTime next_motor_state_update_time = MonotonicTime::fromUSec(0);
@@ -76,10 +80,13 @@ struct bldcMeasure measuredVal_motor3;      // rear left
 struct bldcMeasure measuredVal_motor4;      // rear right
 
 bool custom_vesc_config_set = 0;
-float min_current = -6.0;
-float max_current = 6.0;
-float min_erpm = -20000;
-float max_erpm = 20000;
+typedef struct {
+    float min_current = -20.0;
+    float max_current = 20.0;
+    float min_erpm = -20000;
+    float max_erpm = 20000;
+} mcconf_t;
+mcconf_t mcconf;
 
 int vesc_com_start_delay_ms = 5000;
 
@@ -185,13 +192,13 @@ void loop() {
     if (!custom_vesc_config_set && (systemClock->getMonotonic().toUSec() > 1000 * vesc_com_start_delay_ms)) {
         // TODO: move this to a better place. e.g. CAN subscriber
         // send custom VESC config
-        Vesc_send_custom_config(min_current, max_current, min_erpm, max_erpm, 0);
-        Vesc_send_custom_config(min_current, max_current, min_erpm, max_erpm, 1);
-
+        Vesc_send_custom_config(mcconf.max_current, mcconf.min_current, mcconf.min_erpm, mcconf.max_erpm, 0);
+        Vesc_send_custom_config(mcconf.max_current, mcconf.min_current, mcconf.min_erpm, mcconf.max_erpm, 1);
+        Serial.println("custom esc data set");
         // delay for VESCs to write settings
         delay(250);
 
-        // validate settings
+        // validate settings 
         VescUartFlushAll(0);
         VescUartFlushAll(1);
         vesc_send_custom_config_request(0);
@@ -200,8 +207,8 @@ void loop() {
         // wait for the message
         delay(10);
         custom_vesc_config_set = true;
-        if (VescUartGetValue(measuredVal_motor3, 0) == 0) custom_vesc_config_set = false;
-        if (VescUartGetValue(measuredVal_motor4, 1) == 0) custom_vesc_config_set = false;
+        //if (VescUartGetValue(measuredVal_motor3, 0) == 0) custom_vesc_config_set = false;
+        //if (VescUartGetValue(measuredVal_motor4, 1) == 0) custom_vesc_config_set = false;
     }
 
 

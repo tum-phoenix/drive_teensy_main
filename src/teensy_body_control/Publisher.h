@@ -7,6 +7,7 @@
 #include "phoenix_msgs/MotorTarget.hpp"
 #include "phoenix_msgs/NodeState.hpp"
 #include "phoenix_msgs/DriveState.hpp"
+#include "phoenix_msgs/MotorConfig.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -28,6 +29,7 @@ Publisher<MotorState> *motorStatePublisher;
 Publisher<MotorTarget> *motorTargetPublisher;
 Publisher<NodeState> *status_Publisher;
 Publisher<DriveState> *drive_Publisher;
+Publisher<MotorConfig> *mcconf_Publisher;
 
 
 // initialize all publisher
@@ -39,6 +41,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   motorStatePublisher = new Publisher<MotorState>(*node);
   motorTargetPublisher = new Publisher<MotorTarget>(*node);
   drive_Publisher = new Publisher<DriveState>(*node);
+  mcconf_Publisher = new Publisher<MotorConfig>(*node);
 
   // initiliaze publishers
   if(status_Publisher->init() < 0)
@@ -65,12 +68,18 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
     {
       Serial.println("Unable to initialize drive_Publisher!");
     }
+
+  if(mcconf_Publisher->init() < 0)
+    {
+      Serial.println("Unable to initialize mcconf_Publisher!");
+    }
   // set TX timeout
   imuPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorStatePublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorTargetPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   drive_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   status_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  mcconf_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
 // cycle BNO publisher
@@ -182,6 +191,23 @@ void cyclePublisher_Drive_State(float v, float s_f, float s_r)
   if (drive_Publisher->broadcast(msg) < 0)
   {
     Serial.println("Error while broadcasting drive State comand");
+  } else {
+    digitalWrite(trafficLedPin, HIGH);
+  }
+}
+
+void Publisher_Motor_Config() {
+
+  float max_erpm = max(configuration.maxSpeedAuton,configuration.maxSpeedRC) / (2. * M_PI * WHEEL_RADIUS_M) * 60. * (float)(MOT_POL_NUM / 2);
+
+  MotorConfig msg;
+  msg.max_motor_current       = configuration.maxMotorAmps;
+  msg.max_motor_current_brake = - configuration.maxMotorAmps;
+  msg.max_erpm                = max_erpm * 1.5;
+  
+  if (mcconf_Publisher->broadcast(msg) < 0)
+  {
+    Serial.println("Error while broadcasting vesc motor config comand");
   } else {
     digitalWrite(trafficLedPin, HIGH);
   }

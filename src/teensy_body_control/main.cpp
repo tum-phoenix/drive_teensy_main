@@ -63,6 +63,9 @@
 //
 
 // Vesc
+  //#define VESC_DEBUG_OUTPUT
+  #define MOT_POL_NUM 14
+  #define MOTOR_Y_WIND_FACTOR 1.7 
   static struct actor_comm_t
   {
     uint8_t mot_arm = 0;
@@ -76,6 +79,15 @@
   bldcMeasure measuredVal_motor[4];
   uint32_t last_mot_state_update[4] = {0, 0, 0, 0};
   boolean braking = false;
+
+  typedef struct {
+    float min_current = -20.0;
+    float max_current = 20.0;
+    float min_erpm = -20000;
+    float max_erpm = 20000;
+  } mcconf_t;
+  mcconf_t mcconf;
+
 //
 
 // status
@@ -171,16 +183,55 @@ void setup()
 
   // set up BNO055 IMU Adafruit_Sensor
   bno055.begin();
-  
+
+  float max_erpm = max(configuration.maxSpeedAuton,configuration.maxSpeedRC) / (2. * M_PI * WHEEL_RADIUS_M) * 60. * (float)(MOT_POL_NUM / 2);
+  mcconf.max_current = configuration.maxMotorAmps;
+  mcconf.min_current = - configuration.maxMotorAmps;
+  mcconf.min_erpm    = - max_erpm * 1.5;
+  mcconf.max_erpm    = max_erpm * 1.5;
+
+  delay(25);
+
+  while(micros() - config_received_reply[ConfigReceived::VESC_MOTOR_CONFIG] > 25000) 
+  {
+    // send the Motor Config constantly until we get a answer.
+    Publisher_Motor_Config();
+    delayMicroseconds(20000);
+    cycleNode(node);
+  }
 }
 
 // more initiations for the loop
   imu_t bno_data;
   uint32_t t_ = 0;
+  bool custom_vesc_config_set = false;
+  int vesc_com_start_delay_ms = 5000;
 //
 
 void loop()
 {
+  if (!custom_vesc_config_set && (systemClock->getMonotonic().toUSec() > 1000 * vesc_com_start_delay_ms)) {
+    // TODO: move this to a better place. e.g. CAN subscriber
+    // send custom VESC config
+    Vesc_send_custom_config(mcconf.max_current, mcconf.min_current, mcconf.min_erpm, mcconf.max_erpm, 0);
+    Vesc_send_custom_config(mcconf.max_current, mcconf.min_current, mcconf.min_erpm, mcconf.max_erpm, 1);
+    Serial.println("custom esc data set");
+    // delay for VESCs to write settings
+    delay(250);
+    setRGBled(0, 255, 0);
+    custom_vesc_config_set = true;
+  }
+
+  cycleNode(node);
+  static uint32_t req[2] = {0,0};
+  static uint32_t rec[2] = {0,0};
+  while (micros() - t_ < (1000000. / (float)framerate) - 5000); // wait for the vesc to receive the requested data
+  VescUartFlushAll(0);
+  VescUartFlushAll(1);
+  vesc_send_status_request(0);
+  vesc_send_status_request(1);
+  req[0]++;
+  req[1]++;
   // wait in cycle
   uint32_t t = micros();
   float cpu_load = (float)(t - t_) / (1000000. / (float)framerate);
@@ -190,17 +241,14 @@ void loop()
   t_ = micros();
 
   // get RC data, high level commands, motor telemetry rear motors
-  cycleNode(node);
 
-  vesc_send_status_request(0);
-  vesc_send_status_request(1);
-  delayMicroseconds(7000);
   // update motor front left information
   switch (VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT))
   {
-  case COMM_GET_VALUES:
+  case COMM_GET_VALUES_SHORT:
     cyclePublisher_Mot_State(measuredVal_motor[FRONT_LEFT], FRONT_LEFT);
     last_mot_state_update[FRONT_LEFT] = millis();
+    rec[0]++;
     break;
   default:
     break;
@@ -209,13 +257,29 @@ void loop()
   // update motor front right information
   switch (VescUartGetValue(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT))
   {
-  case COMM_GET_VALUES:
+  case COMM_GET_VALUES_SHORT:
     cyclePublisher_Mot_State(measuredVal_motor[FRONT_RIGHT], FRONT_RIGHT);
     last_mot_state_update[FRONT_RIGHT] = millis();
+    rec[1]++;
     break;
   default:
     break;
   }
+
+  #ifdef VESC_DEBUG_OUTPUT
+    Serial.print("Running at: ");
+    Serial.print(cpu_load);
+    Serial.print(" dutycycle \t ");
+    Serial.print("vesc state 0 req: \t");
+    Serial.print(req[0]);
+    Serial.print("\trec: \t");
+    Serial.print(rec[0]);
+
+    Serial.print("\t vesc state 1 req: \t");
+    Serial.print(req[1]);
+    Serial.print("\trec: \t");
+    Serial.println(rec[1]);
+  #endif
 
   // BNO055 data aquisition
   // Possible vector values can be:
@@ -276,10 +340,10 @@ float a_y_imu()
 
 float v_wheel(uint8_t wheelindex)
 {
-  float mean_rounds = (float)measuredVal_motor[wheelindex].erpm / 7.; // RPM
-  mean_rounds /= 60.;                                                 // RPS
-  mean_rounds = mean_rounds * 2. * M_PI * WHEEL_RADIUS_M;             // m/s;
-  return mean_rounds;
+  float data = (float)measuredVal_motor[wheelindex].erpm / (float)(MOT_POL_NUM / 2); // RPM
+  data /= 60.;                                                                     // RPS
+  data = data * 2. * M_PI * WHEEL_RADIUS_M;                                        // m/s;
+  return data;
 }
 
 float v_veh()
@@ -320,7 +384,6 @@ float a_wheel(uint8_t wheelindex)
 
 void dynamics_control()
 {
-  #define MOTOR_Y_WIND_FACTOR 1.7 
   float main_amps = 0;
   if (check_arm_state())
   {
@@ -337,11 +400,11 @@ void dynamics_control()
     }
 
     if (fabsf(car_vel.sp) < 0.001) {
-      actor_comms.mot_cur_type = MotorTarget::HANDBRAKE;
+      actor_comms.mot_cur_type = MotorTarget::ACCELERATION;
       setRGBled(255,0,0);
     }
     else if (fabsf(car_vel.sp) < fabsf(car_vel.is)) {
-      actor_comms.mot_cur_type = MotorTarget::REG_BRAKE;
+      actor_comms.mot_cur_type = MotorTarget::ACCELERATION;
       setRGBled(0,0,255);
     }
     else if (fabsf(car_vel.sp) >= fabsf(car_vel.is)) {
@@ -747,8 +810,8 @@ void set_brake_light(float main_amps)
 void setup_esc() 
 {
   // setup UART port for vesc
-  Serial1.begin(250000);
-  Serial3.begin(250000);
+  Serial1.begin(230400);
+  Serial3.begin(230400);
   SetSerialPort(&Serial1, &Serial3);
   //SetDebugSerialPort(&Serial);
 }

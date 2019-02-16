@@ -1,3 +1,6 @@
-uint8 VESC_MOTOR_CONFIG = 1
-uint8 VESC_APP_CONFIG = 2
+uint8 VESC_MOTOR_CONFIG = 0
+uint8 VESC_APP_CONFIG = 1
+
+uint8 CONFIG_NUMS = 2           # needs to be the last in the row. identifies the number of different configs 
+
 uint8 received_config
