@@ -79,13 +79,6 @@
   bldcMeasure measuredVal_motor[4];
   uint32_t last_mot_state_update[4] = {0, 0, 0, 0};
   boolean braking = false;
-
-  typedef struct {
-    float min_current = -20.0;
-    float max_current = 20.0;
-    float min_erpm = -20000;
-    float max_erpm = 20000;
-  } mcconf_t;
   mcconf_t mcconf;
 
 //
