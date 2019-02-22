@@ -184,11 +184,11 @@ void setup()
   // set up BNO055 IMU Adafruit_Sensor
   bno055.begin();
 
-  float max_erpm = max(configuration.maxSpeedAuton,configuration.maxSpeedRC) / (2. * M_PI * WHEEL_RADIUS_M) * 60. * (float)(MOT_POL_NUM / 2);
+  float max_erpm = max(configuration.maxSpeedAuton, configuration.maxSpeedRC) / (float)(2. * M_PI * WHEEL_RADIUS_M * 60. * (float)MOT_POL_NUM / 2.);
   mcconf.max_current = configuration.maxMotorAmps;
   mcconf.min_current = - configuration.maxMotorAmps;
-  mcconf.min_erpm    = - max_erpm * 1.5;
-  mcconf.max_erpm    = max_erpm * 1.5;
+  mcconf.min_erpm    = (float)(- max_erpm * 1.5);
+  mcconf.max_erpm    = (float)(max_erpm * 1.5);
 
   delay(25);
 
