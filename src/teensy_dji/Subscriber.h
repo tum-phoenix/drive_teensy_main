@@ -20,7 +20,9 @@ void motor_config_callback(const MotorConfig& msg) {
     mcconf.min_current = (float)(msg.max_motor_current_brake/ MOTOR_Y_WIND_FACTOR);
     mcconf.min_erpm    = - msg.max_erpm;
     mcconf.max_erpm    = msg.max_erpm;
-    custom_vesc_config_set = false;
+    // setting custom_config_set_status to 0 will trigger mcconf to be written to VESC
+    measuredVal_motor3.custom_config_set_status = 0;
+    measuredVal_motor4.custom_config_set_status = 0;
 }
 
 void motor_target_callback(const MotorTarget& msg) {

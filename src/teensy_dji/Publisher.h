@@ -18,7 +18,12 @@ using namespace phoenix_msgs;
 
 // publishing tasks:
 // we want to publish the rc readings from dji via a RemoteControl Messages
+void Publisher_rc();
 // we want to publish the battery cell voltages from via a Battery Messages
+void Publisher_cell_voltages();
+void Publisher_node_state();
+void Publisher_buttons();
+void Publisher_parking();
 // we want to publish the state of the two motors via two MotorState Messages
 
 
@@ -37,10 +42,6 @@ Publisher<Battery> *battery_Publisher;
 Publisher<ParallelParking> *ppark_Publisher;
 Publisher<UserButtons> *user_buttons_Publisher;
 Publisher<ConfigReceived> *conf_rec_Publisher;
-
-// additional configuration
-static uint8_t motor3_position = MotorState::POS_REAR_LEFT;
-static uint8_t motor4_position = MotorState::POS_REAR_RIGHT;
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node) {
@@ -86,8 +87,8 @@ void initPublisher(Node<NodeMemoryPoolSize> *node) {
     conf_rec_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
-// cycle all publisher
-void cyclePublisher(DJI &dji) {
+
+void Publisher_cell_voltages() {
     // Cell Voltages:
     //      measure -> evaluate -> set battery_alarm for buzzer -> set RGB LED color -> publish to CAN
     if (systemClock->getMonotonic() > next_power_update){
@@ -154,7 +155,10 @@ void cyclePublisher(DJI &dji) {
             digitalWrite(trafficLedPin, HIGH);
         }
     }
+}
 
+
+void Publisher_node_state() {
     // Node State:
     if (systemClock->getMonotonic() > next_node_state_update) {
         next_node_state_update = systemClock->getMonotonic() + MonotonicDuration::fromUSec(node_state_update_rate_us);
@@ -164,7 +168,7 @@ void cyclePublisher(DJI &dji) {
         float V4_raw = analogRead(CELL4_PIN);
         float curr_raw = analogRead(CURR_PIN);
 
-        float V4 = V4_raw * (float) 0.0052815755;
+        float V4 = V4_raw * (float)0.0052815755;
         float curr = curr_raw * CURR_FACTOR;
 
         static NodeState msg;
@@ -174,131 +178,31 @@ void cyclePublisher(DJI &dji) {
         msg.fault_code_1 = node_fault_code1;
         msg.fault_code_2 = node_fault_code2;
     }
+}
 
-    // Motor State:
-    // before the motor state can be received it has to be requested. After a request it takes about 7ms for the reply
-    if ((systemClock->getMonotonic() > next_motor_state_request_time) && (custom_vesc_config_set)) {
-        // clean up input buffer since we are now only interested into the new message
-        VescUartFlushAll(0);
-        VescUartFlushAll(1);
 
-        // we allow up to 10 messages in a row to be missed until alive state goes to zero -> dead
-        if (vesc_motor_state_received[0] == 1) vesc_motor_state_alive[0] = 10;
-        else if (vesc_motor_state_alive[0] > 0) vesc_motor_state_alive[0]--;
-        else vesc_motor_state_alive[0] = 0;
-
-        if (vesc_motor_state_received[1] == 1) vesc_motor_state_alive[1] = 10;
-        else if (vesc_motor_state_alive[1] > 0) vesc_motor_state_alive[1]--;
-        else vesc_motor_state_alive[1] = 0;
-
-        // init received flags as not received for next requested update
-        vesc_motor_state_received[0] = 0;
-        vesc_motor_state_received[1] = 0;
-
-        // send requests to vesc
-        vesc_send_status_request(0);
-        vesc_motor_state_requests[0]++;
-        vesc_send_status_request(1);
-        vesc_motor_state_requests[1]++;
-
-        // set the time of next motor state receive
-        next_motor_state_update_time = systemClock->getMonotonic() + MonotonicDuration::fromUSec(motor_state_reply_duration_us);
-
-        // set the time of nex motor state request
-        next_motor_state_request_time = systemClock->getMonotonic() + MonotonicDuration::fromUSec(motor_state_update_rate_us);
-
-#ifdef VESC_DEBUG_OUTPUT
-        Serial.print("vesc state 0 req: \t");
-        Serial.print(vesc_motor_state_requests[0] - 1);
-        Serial.print("\trec: \t");
-        Serial.print(vesc_motor_state_receives[0]);
-
-        Serial.print("\t vesc state 1 req: \t");
-        Serial.print(vesc_motor_state_requests[1] - 1);
-        Serial.print("\trec: \t");
-        Serial.println(vesc_motor_state_receives[1]);
-
-        Serial.println("Motor 3:");
-        Serial.print("current min ");  Serial.println(measuredVal_motor3.min_current);
-        Serial.print("current max ");  Serial.println(measuredVal_motor3.max_current);
-        Serial.print("erpm min ");  Serial.println(measuredVal_motor3.min_erpm);
-        Serial.print("erpm max ");  Serial.println(measuredVal_motor3.max_erpm);
-
-        Serial.println("Motor 4:");
-        Serial.print("current min ");  Serial.println(measuredVal_motor4.min_current);
-        Serial.print("current max ");  Serial.println(measuredVal_motor4.max_current);
-        Serial.print("erpm min ");  Serial.println(measuredVal_motor4.min_erpm);
-        Serial.print("erpm max ");  Serial.println(measuredVal_motor4.max_erpm);
-#endif
-    }
-
-    // since we requested motor_state_reply_duration_ms ago there should now be a new VESC motor state message available
-    if (systemClock->getMonotonic() > next_motor_state_update_time) {
-        static MotorState msg;
-
-        // update motor 3 information
-        if ((vesc_motor_state_received[0] == 0) && VescUartGetValue(measuredVal_motor3, 0)) {
-            vesc_motor_state_receives[0]++;
-            vesc_motor_state_received[0] = 1;
-
-            msg.position = motor3_position;
-            msg.motor_current = measuredVal_motor3.avgMotorCurrent;
-            msg.input_current = measuredVal_motor3.avgInputCurrent;
-            msg.erpm = measuredVal_motor3.erpm;
-
-            // publish data via CAN and toggle trafficLED on success
-            if (motor_state_Publisher->broadcast(msg) < 0) {
-                Serial.println("Error while broadcasting motor 3 state");
-            } else {
-                digitalWrite(trafficLedPin, HIGH);
-            }
-#ifdef VESC_DEBUG_OUTPUT
-            MonotonicDuration diff = systemClock->getMonotonic() - next_motor_state_update_time;
-            Serial.print("vesc 0 ping: \t");
-            Serial.println((long)diff.toUSec());
-#endif
-        }
-
-        // update motor 4 information
-        if ((vesc_motor_state_received[1] == 0) && VescUartGetValue(measuredVal_motor4, 1)) {
-            vesc_motor_state_receives[1]++;
-            vesc_motor_state_received[1] = 1;
-
-            msg.position = motor4_position;
-            msg.motor_current = measuredVal_motor4.avgMotorCurrent;
-            msg.input_current = measuredVal_motor4.avgInputCurrent;
-            msg.erpm = measuredVal_motor4.erpm;
-
-            // publish data via CAN and toggle trafficLED on success
-            if (motor_state_Publisher->broadcast(msg) < 0) {
-                Serial.println("Error while broadcasting motor 4 state");
-            } else {
-                digitalWrite(trafficLedPin, HIGH);
-            }
-#ifdef VESC_DEBUG_OUTPUT
-            MonotonicDuration diff = systemClock->getMonotonic() - next_motor_state_update_time;
-            Serial.print("vesc 1 ping: \t");
-            Serial.println((long)diff.toUSec());
-#endif
-        }
-    }
-
-    // RC update
-    // remote control update -> at rc_update_rate -> check time first
-    if (dji.read()) {
-#ifdef DJI_DEBUG_OUTPUT
-        MonotonicDuration diff = systemClock->getMonotonic() - last_rc_receive;
-        Serial.print("RC diff [us]:");
-        Serial.print((long)diff.toUSec());
-#endif
-        last_rc_receive = systemClock->getMonotonic();
-    }
-
+void Publisher_rc() {
     if (systemClock->getMonotonic() > next_rc_update) {
         next_rc_update = systemClock->getMonotonic() + MonotonicDuration::fromUSec(rc_update_rate_us);
         static RemoteControl msg;
 
-        if ((systemClock->getMonotonic() - last_rc_receive).toUSec() > rc_timeout_us) {
+#ifdef DJI_DEBUG_OUTPUT
+        Serial.print("RC - ping: ");
+        Serial.print(dji.get_ping());
+        Serial.print("\t age: ");
+        Serial.print(dji.get_age_last_update());
+        Serial.print("\t channels: ");
+        Serial.print(dji.leftSwitch());
+        Serial.print("\t ");
+        Serial.print(dji.rightSwitch());
+        Serial.print("\t ");
+        Serial.print(dji.leftVerticalStick(msg.velocity));
+        Serial.print("\t ");
+        Serial.print(dji.leftHorizontalStick(msg.steer_rear));
+        Serial.print("\t ");
+        Serial.println(dji.rightHorizontalStick(msg.steer_front));
+#endif
+        if (dji.get_age_last_update() > rc_timeout_us) {
             // last rc reading is old -> use fail save values:
             msg.drive_mode = RemoteControl::DRIVE_MODE_RC_DISCONNECTED;
             msg.aux_mode = RemoteControl::AUX_MODE_RC_DISCONNECTED;
@@ -354,7 +258,10 @@ void cyclePublisher(DJI &dji) {
             digitalWrite(trafficLedPin, HIGH);
         }
     }
+}
 
+
+void Publisher_buttons() {
     // buttons
     if (systemClock->getMonotonic() > next_button_update) {
         next_button_update = systemClock->getMonotonic() + MonotonicDuration::fromUSec(button_update_rate_us);
@@ -362,7 +269,7 @@ void cyclePublisher(DJI &dji) {
         analogReadRes(12);
         analogReadAveraging(10);
 
-        #define R0 16
+#define R0 16
         int raw = analogRead(BUTTON_PIN);
         float r = (float)raw / 4096;
         r = 1 - r;
@@ -389,7 +296,10 @@ void cyclePublisher(DJI &dji) {
             digitalWrite(trafficLedPin, HIGH);
         }
     }
+}
 
+
+void Publisher_parking() {
     // parking lot
     // to ensure that this message really really arrives on the computer, it is sent until publish_lot_msg_to_send is zero
     if ((publish_lot_msg_to_send > 0) && (systemClock->getMonotonic() > next_par_lot_update)) {
@@ -407,6 +317,24 @@ void cyclePublisher(DJI &dji) {
         publish_lot_msg_to_send--;
     }
 }
+
+
+void Publisher_motor_state(bldcMeasure &measuredVal_motor) {
+    static MotorState msg;
+     msg.position = measuredVal_motor.motor_position;
+     msg.motor_current = measuredVal_motor.avgMotorCurrent;
+     msg.input_current = measuredVal_motor.avgInputCurrent;
+     msg.erpm = measuredVal_motor.erpm;
+
+    // publish data via CAN and toggle trafficLED on success
+    if (motor_state_Publisher->broadcast(msg) < 0) {
+        Serial.print("Error while broadcasting motor state ");
+        Serial.println(measuredVal_motor.motor_position);
+    } else {
+        digitalWrite(trafficLedPin, HIGH);
+    }
+}
+
 
 void Publisher_config_received(uint8_t type) {
     ConfigReceived msg;

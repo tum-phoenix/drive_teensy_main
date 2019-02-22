@@ -26,13 +26,11 @@ public:
 
     // read data from DJI remote
     bool read() {
-        return sbus.read(&channels[0], &failSafe, &lostFrames);
-    }
-
-    // get number of lost frames
-    // this seems to be the number of lost data via RC connection, not the SBUS itself.
-    uint16_t getLostFrames() {
-        return lostFrames;
+        if (sbus.read(&channels[0], &failSafe, &lostFrames)) {
+            ping_us += (systemClock->getMonotonic() - last_rc_receive).toUSec();
+            ping_us /= 2;
+            last_rc_receive = systemClock->getMonotonic();
+        }
     }
 
     // returns left vertical stick values between -1 and 1
@@ -115,21 +113,24 @@ public:
         }
     }
 
-    uint8_t get_fail_state() {
-        return failSafe;
+    uint16_t get_ping() {
+        return ping_us;
     }
 
-    uint16_t get_lost_frames() {
-        return lostFrames;
+    uint32_t get_age_last_update() {
+        return (uint32_t)(systemClock->getMonotonic() - last_rc_receive).toUSec();
     }
 
 private:
-    SBUS sbus;                // SBUS interface
+    SBUS sbus;                      // SBUS interface
     uint8_t failSafe = 1;           // init in fail save mode
     // if in fail save mode, all sticks are 0 positioned
     // if in fail save mode, all switches are in UNKNOWN state
     uint16_t lostFrames = 0;        // number of lost frames
     uint16_t channels[16] = {0};    // current data
+
+    uint16_t ping_us = 0;
+    MonotonicTime last_rc_receive = MonotonicTime::fromMSec(0);
 };
 
 
