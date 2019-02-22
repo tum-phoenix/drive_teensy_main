@@ -213,8 +213,8 @@ void loop()
   if (!custom_vesc_config_set && (systemClock->getMonotonic().toUSec() > 1000 * vesc_com_start_delay_ms)) {
     // TODO: move this to a better place. e.g. CAN subscriber
     // send custom VESC config
-    Vesc_send_custom_config(mcconf.max_current, mcconf.min_current, mcconf.min_erpm, mcconf.max_erpm, 0);
-    Vesc_send_custom_config(mcconf.max_current, mcconf.min_current, mcconf.min_erpm, mcconf.max_erpm, 1);
+    Vesc_send_custom_config(mcconf.min_current, mcconf.max_current, mcconf.min_erpm, mcconf.max_erpm, 0);
+    Vesc_send_custom_config(mcconf.min_current, mcconf.max_current, mcconf.min_erpm, mcconf.max_erpm, 1);
     Serial.println("custom esc data set");
     // delay for VESCs to write settings
     delay(250);

@@ -456,13 +456,13 @@ void VescUartSetCurrent(float current, int num) {
 }
 
 
-void Vesc_send_custom_config(float current_acc, float current_brk, float erpm_min, float erpm_max, int num) {
+void Vesc_send_custom_config(float current_min, float current_max, float erpm_min, float erpm_max, int num) {
     int32_t index = 0;
     uint8_t payload[17];
 
     payload[index++] = COMM_SET_CUSTOM_MC_CONF_VALUES;
-    buffer_append_float32_auto(payload, current_brk, &index);
-    buffer_append_float32_auto(payload, current_acc, &index);
+    buffer_append_float32_auto(payload, current_min, &index);
+    buffer_append_float32_auto(payload, current_max, &index);
     buffer_append_float32_auto(payload, erpm_min, &index);
     buffer_append_float32_auto(payload, erpm_max, &index);
     PackSendPayload(payload, 17, num);
