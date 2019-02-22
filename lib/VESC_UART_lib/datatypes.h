@@ -529,6 +529,8 @@ struct mc_values{
 
 // Added by AC to store measured values
 struct bldcMeasure {
+    uint8_t motor_position;
+    uint8_t serial_port;
 	float tempFetFiltered;
 	float tempMotorFiltered;
 	float avgMotorCurrent;
@@ -537,10 +539,6 @@ struct bldcMeasure {
 	float avgIq;
 	float dutyNow;
 	long  erpm;
-	float min_current;
-    float max_current;
-    float min_erpm;
-    float max_erpm;
 	float inpVoltage;
 	float ampHours;
 	float ampHoursCharged;
@@ -549,7 +547,34 @@ struct bldcMeasure {
 	long tachometer;
 	long tachometerAbs;
 	int faultCode;
+    float min_current;
+    float max_current;
+    float min_erpm;
+    float max_erpm;
+    uint8_t custom_config_set_status = 0;
+    // custom_config_set_status
+    //      0: not set
+    //      1: send but not checked
+    //      2: waiting for confirmed settings
+    //      3: settings okay
+    MonotonicTime last_status_req_time = MonotonicTime::fromUSec(0);
+    MonotonicTime next_status_req_time = MonotonicTime::fromUSec(0);
+    MonotonicTime last_config_req_time = MonotonicTime::fromUSec(0);
+    MonotonicTime next_config_req_time = MonotonicTime::fromUSec(0);
+    MonotonicTime last_config_set_time = MonotonicTime::fromUSec(0);
+    uint16_t ping_us;
+    uint8_t alive = 0;
+    uint16_t state_requests = 0;
+    uint16_t state_answers = 0;
+    uint8_t state_answered = 0;
 };
+
+typedef struct {
+	float min_current = -20;
+	float max_current = 20;
+	float min_erpm = -20000;
+	float max_erpm = 20000;
+} mcconf_t;
 
 
 #endif /* DATATYPES_H_ */
