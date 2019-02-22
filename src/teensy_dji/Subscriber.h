@@ -16,12 +16,11 @@ Subscriber<MotorTarget> *motor_target_Subscriber;
 Subscriber<MotorConfig> *mcconf_Subscriber;
 
 void motor_config_callback(const MotorConfig& msg) {
-    mcconf.max_current = msg.max_motor_current / MOTOR_Y_WIND_FACTOR;
-    mcconf.min_current = msg.max_motor_current_brake/ MOTOR_Y_WIND_FACTOR;
+    mcconf.max_current = (float)(msg.max_motor_current / MOTOR_Y_WIND_FACTOR);
+    mcconf.min_current = (float)(msg.max_motor_current_brake/ MOTOR_Y_WIND_FACTOR);
     mcconf.min_erpm    = - msg.max_erpm;
     mcconf.max_erpm    = msg.max_erpm;
     custom_vesc_config_set = false;
-    Publisher_config_received(ConfigReceived::VESC_MOTOR_CONFIG);
 }
 
 void motor_target_callback(const MotorTarget& msg) {
