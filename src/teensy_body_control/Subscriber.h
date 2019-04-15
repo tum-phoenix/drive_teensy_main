@@ -5,6 +5,7 @@
 #include "phoenix_msgs/RemoteControl.hpp"
 #include "phoenix_msgs/MotorState.hpp"
 #include "phoenix_msgs/NucDriveCommand.hpp"
+#include "phoenix_msgs/ConfigReceived.hpp"
 #include "vuart.h"
 
 using namespace uavcan;
@@ -13,6 +14,7 @@ using namespace phoenix_msgs;
 Subscriber<RemoteControl> *remote_control_Subscriber;
 Subscriber<MotorState> *motor_state_Subscriber;
 Subscriber<NucDriveCommand> *nuc_drive_Subscriber;
+Subscriber<ConfigReceived> *conf_rec_Subscriber;
 
 void remote_control_callback(const RemoteControl &msg)
 {
@@ -39,7 +41,8 @@ void Motor_State_callback(const MotorState &msg)
     measuredVal_motor[REAR_RIGHT].inpVoltage = msg.input_voltage;
     measuredVal_motor[REAR_RIGHT].avgMotorCurrent = msg.motor_current;
     measuredVal_motor[REAR_RIGHT].avgInputCurrent = msg.input_current;
-    measuredVal_motor[REAR_RIGHT].rpm = msg.rpm;
+    measuredVal_motor[REAR_RIGHT].erpm = msg.erpm;
+    last_mot_state_update[MotorState::POS_REAR_RIGHT] = millis();
   }
 }
 
@@ -57,6 +60,7 @@ void initSubscriber(Node<NodeMemoryPoolSize> *node)
   remote_control_Subscriber = new Subscriber<RemoteControl>(*node);
   motor_state_Subscriber = new Subscriber<MotorState>(*node);
   nuc_drive_Subscriber = new Subscriber<NucDriveCommand>(*node);
+  conf_rec_Subscriber = new Subscriber<ConfigReceived>(*node);
 
   if (remote_control_Subscriber->start(remote_control_callback) < 0)
   {
@@ -70,6 +74,9 @@ void initSubscriber(Node<NodeMemoryPoolSize> *node)
   {
     Serial.println("Unable to start subscriber nuc_drive!");
   }
+  if(conf_rec_Subscriber->start(conf_rec_callback) < 0)
+  {
+    Serial.println("Unable to start subscriber conf_received!");
+  }
 }
-
 #endif

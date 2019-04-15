@@ -1,0 +1,3 @@
+float16 max_motor_current
+float16 max_motor_current_brake
+float16 max_erpm

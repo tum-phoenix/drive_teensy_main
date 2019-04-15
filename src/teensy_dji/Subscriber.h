@@ -3,6 +3,8 @@
 
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/MotorTarget.hpp"
+#include "phoenix_msgs/MotorConfig.hpp"
+#include "Publisher.h"
 
 using namespace uavcan;
 using namespace phoenix_msgs;
@@ -11,6 +13,7 @@ using namespace phoenix_msgs;
 // we want to subscribe the MotorTarget messages to set the motors.
 
 Subscriber<MotorTarget> *motor_target_Subscriber;
+Subscriber<MotorConfig> *mcconf_Subscriber;
 
 void motor_target_callback(const MotorTarget &msg)
 {
@@ -49,10 +52,16 @@ void initSubscriber(Node<NodeMemoryPoolSize> *node)
 {
   // create a subscriber
   motor_target_Subscriber = new Subscriber<MotorTarget>(*node);
+  mcconf_Subscriber = new Subscriber<MotorConfig>(*node);
 
   if (motor_target_Subscriber->start(motor_target_callback) < 0)
   {
     Serial.println("Unable to start motor_target_Subscriber!");
+  }
+
+  if(mcconf_Subscriber->start(motor_config_callback) < 0)
+  {
+    Serial.println("Unable to start motor_config_Subscriber!");
   }
 }
 

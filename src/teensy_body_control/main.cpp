@@ -16,7 +16,8 @@ static constexpr uint8_t hwVersion = 1;
 static const char *nodeName = "org.phoenix.body_control";
 
 // application settings
-static constexpr float framerate = 100;
+  static constexpr float framerate = 50;
+//
 
 // Driving dynamics
 #define FRONT_LEFT MotorState::POS_FRONT_LEFT
@@ -70,7 +71,8 @@ MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 #define CURR_FACTOR 0.00161133 / 4 // 0R01 + 200V/V
 
 // BNO055 imu
-Adafruit_BNO055 bno055 = Adafruit_BNO055();
+  Adafruit_BNO055 bno055 = Adafruit_BNO055();
+//
 
 // servos for steering
 PWM_T32 steering_servo[2];
@@ -122,11 +124,6 @@ void setup()
   readParamsFromEEPROM();
 
   Serial.begin(115200);
-  // setup UART port for vesc
-  Serial1.begin(250000);
-  Serial3.begin(250000);
-  SetSerialPort(&Serial1, &Serial3);
-  //SetDebugSerialPort(&Serial);
 
   // lights
   /*
@@ -142,29 +139,7 @@ void setup()
   analogReadRes(12);
   analogReadAveraging(4);
 
-  // init LEDs
-  initLeds();
-
-  // create a node
-  systemClock = &initSystemClock();
-  canDriver = &initCanDriver();
-  node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
-  initNode(node, nodeID, nodeName, swVersion, hwVersion);
-
-  // init publisher
-  initPublisher(node);
-
-  // init subscriber
-  initSubscriber(node);
-
-  // set up filters
-  configureCanAcceptanceFilters(*node);
-
-  // init parameter
-  initParameter(node);
-
-  // start up node
-  node->setModeOperational();
+  setup_servo();
 
   // set up BNO055 IMU Adafruit_Sensor
   bno055.begin();
@@ -181,7 +156,12 @@ void setup()
   lights_pwm.writeMicros(pwm_register);
 }
 
-imu_t bno_data;
+// more initiations for the loop
+  imu_t bno_data;
+  uint32_t t_ = 0;
+  bool custom_vesc_config_set = false;
+  int vesc_com_start_delay_ms = 5000;
+//
 
 uint32_t t_ = 0;
 void loop()
@@ -205,7 +185,6 @@ void loop()
   t_ = micros();
 
   // get RC data, high level commands, motor telemetry rear motors
-  cycleNode(node);
 
   // update motor front left information
   switch (VescUartGetValue(measuredVal_motor[FRONT_LEFT], FRONT_LEFT))
@@ -226,6 +205,21 @@ void loop()
   default:
     break;
   }
+
+  #ifdef VESC_DEBUG_OUTPUT
+    Serial.print("Running at: ");
+    Serial.print(cpu_load);
+    Serial.print(" dutycycle \t ");
+    Serial.print("vesc state 0 req: \t");
+    Serial.print(req[0]);
+    Serial.print("\trec: \t");
+    Serial.print(rec[0]);
+
+    Serial.print("\t vesc state 1 req: \t");
+    Serial.print(req[1]);
+    Serial.print("\trec: \t");
+    Serial.println(rec[1]);
+  #endif
 
   // BNO055 data aquisition
   // Possible vector values can be:
@@ -250,8 +244,8 @@ void loop()
   vesc_command();
   servo_command();
 
-  // spam Power info
-  cyclePublisher_Power();
+  // spam Status info
+  cyclePublisher_Status();
 
   // toggle heartbeat
   toggleHeartBeat();
@@ -376,8 +370,8 @@ void dynamics_control()
     actor_comms.servo_angles[FRONT_RIGHT] = 0;
     actor_comms.servo_angles[REAR_LEFT] = 0;
     actor_comms.servo_angles[REAR_RIGHT] = 0;
-    //ppm_light.write(BREAK, OFF_PPM);
   }
+  set_brake_light(main_amps);
 }
 
 void vesc_command()
@@ -518,6 +512,13 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     s_sp[0] = 0;
     s_sp[1] = 0;
   }
+  // filter the servo signals
+  //lowpassFilterServoFront.input(s_sp[0]);
+  //s_sp[0] = lowpassFilterServoFront.output();
+  //lowpassFilterServoRear.input(s_sp[1]);
+  //s_sp[1] = lowpassFilterServoRear.output();
+
+  // write the servo setpoints
   actor_comms.steer_angles[0] = s_sp[0];
   actor_comms.steer_angles[1] = s_sp[1];
   if (s_sp[0] > 0)
@@ -540,4 +541,321 @@ void calc_steer(float *servo_angles) // servo_angles float[4]
     servo_angles[REAR_LEFT] = -s_sp[1] / MAX_STEER_ANGLE * 0;  //MAX_STEER_SERVO_OUTER;
     servo_angles[REAR_RIGHT] = -s_sp[1] / MAX_STEER_ANGLE * 0; //MAX_STEER_SERVO_INNER;
   }
+  else
+  {
+    servo_angles[FRONT_LEFT] = -s_sp[0] / MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+    servo_angles[FRONT_RIGHT] = -s_sp[0] / MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+  }
+  if (s_sp[1] > 0)
+  {
+    servo_angles[REAR_LEFT] = -s_sp[1] / MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+    servo_angles[REAR_RIGHT] = -s_sp[1] / MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+  }
+  else
+  {
+    servo_angles[REAR_LEFT] = -s_sp[1] / MAX_STEER_ANGLE * MAX_STEER_SERVO_OUTER;
+    servo_angles[REAR_RIGHT] = -s_sp[1] / MAX_STEER_ANGLE * MAX_STEER_SERVO_INNER;
+  }
+}
+
+void update_lights(uint32_t command)
+{
+  pwm_lights.write(map((float)command, 96., 8032., 0., 180.));
+  //Serial.print(command, BIN); Serial.print("\t");
+  //Serial.println(map((float)command, 96., 8032., 0., 180.));
+}
+
+void process_lights()
+{
+  light_com = B01100000;
+  uint8_t parity_counter = 0;
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL || RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
+  {
+    bitSet(light_com, PWM_RC_LED);
+    parity_counter++;
+  }
+  else
+  {
+    bitClear(light_com, PWM_RC_LED);
+  }
+  if (NUC_drive_coms.blink == 1 || NUC_drive_coms.blink == 3)
+  {
+    bitSet(light_com, PWM_BLINK_LEFT);
+    parity_counter++;
+  }
+  else
+  {
+    bitClear(light_com, PWM_BLINK_LEFT);
+  }
+  if (NUC_drive_coms.blink == 2 || NUC_drive_coms.blink == 3)
+  {
+    bitSet(light_com, PWM_BLINK_RIGHT);
+    parity_counter++;
+  }
+  else
+  {
+    bitClear(light_com, PWM_BLINK_RIGHT);
+  }
+  if (braking)
+  {
+    bitSet(light_com, PWM_BRAKE);
+    parity_counter++;
+  }
+  else
+  {
+    bitClear(light_com, PWM_BRAKE);
+  }
+  if (check_arm_state())
+  {
+    bitSet(light_com, PWM_ARM);
+    parity_counter++;
+  }
+  else
+  {
+    bitClear(light_com, PWM_ARM);
+  }
+  // calculate the odd parity
+  if (parity_counter % 2 != 0)
+  { // if we have an odd number allready, clear the parity bit
+    bitClear(light_com, PWM_O_PARITY);
+  }
+  else
+  {
+    bitSet(light_com, PWM_O_PARITY);
+  }
+
+  update_lights(light_com);
+}
+
+bool disable_motors()
+{
+  #define MOT_DIS_THRESHOLD_V 0.001
+  #define MOT_DIS_THRESHOLD_MS 10000
+  static uint32_t start_millis = 0;
+  static float thr_prev = 0;
+  if (fabsf(RC_coms.thr) < MOT_DIS_THRESHOLD_V)
+  {
+    if (fabsf(thr_prev) >= MOT_DIS_THRESHOLD_V)
+    {
+      start_millis = millis();
+      thr_prev = RC_coms.thr;
+      return false;
+    }
+    if (millis() - start_millis >= MOT_DIS_THRESHOLD_MS)
+    {
+      thr_prev = RC_coms.thr;
+      return true;
+    }
+  }
+  thr_prev = RC_coms.thr;
+  return false;
+}
+
+void set_Speed()
+{
+  //calculate Velocity error
+  static float this_drive_state = 0;
+  RC_coms.drive_state_prev = this_drive_state;
+  this_drive_state = RC_coms.drive_state;
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL)
+  {
+    /*if (millis() - NUC_drive_coms.last_update < RC_COM_DEAD_TIME) // see, if updates are fresh enough
+      {*/
+    car_vel.sp = constrain(RC_coms.thr * configuration.maxSpeedRC, -configuration.maxSpeedRC, configuration.maxSpeedRC);
+    /*}
+      else 
+      {
+        car_vel.sp = 0;
+      }*/
+  }
+  else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS)
+  {
+    /*if (millis() - NUC_drive_coms.last_update < RC_COM_DEAD_TIME) // see, if updates are fresh enough
+      {*/
+    car_vel.sp = constrain(RC_coms.thr * configuration.maxSpeedAuton, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
+    /*}
+      else 
+      {
+        car_vel.sp = 0;
+      }*/
+  }
+  else if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_AUTONOMOUS)
+  {
+    /*if (millis() - NUC_drive_coms.last_update < NUC_COM_DEAD_TIME) // see, if updates are fresh enough
+      {*/
+    car_vel.sp = constrain(NUC_drive_coms.lin_vel, -configuration.maxSpeedAuton, configuration.maxSpeedAuton);
+    /*}
+      else 
+      {
+        car_vel.sp = 0;
+      }*/
+  }
+  else
+  {
+    car_vel.sp = 0;
+  }
+
+  static bool waiting_to_stop = false;
+  static uint32_t wait_to_stop_since = 0;
+  if (RC_coms.drive_state == RemoteControl::DRIVE_MODE_MANUAL && (RC_coms.drive_state_prev == RemoteControl::DRIVE_MODE_AUTONOMOUS || RC_coms.drive_state_prev == RemoteControl::DRIVE_MODE_SEMI_AUTONOMOUS))
+  {
+    waiting_to_stop = true;
+    wait_to_stop_since = millis();
+  }
+
+  if (waiting_to_stop)
+  {
+    if (millis() - wait_to_stop_since < 800)
+    {
+      car_vel.sp = 0;
+    }
+    else
+    {
+      waiting_to_stop = false;
+    }
+  }
+}
+
+float x_veh()
+{
+  v_veh();
+  static uint32_t lastupdate = 0;
+  static uint32_t thisupdate = 0;
+  lastupdate = thisupdate;
+  thisupdate = micros();
+  uint32_t dt = thisupdate-lastupdate; // micros
+  double ds = (car_vel.is * (double)dt)/1000000.; // m
+  double temp =  x_dist + ds;
+  x_dist = temp;
+  return x_dist;
+}
+
+void set_Actuators() 
+{
+  if (actor_comms.mot_arm == MotorTarget::MOTORS_ON)
+  {
+    if (actor_comms.mot_cur_type == MotorTarget::ACCELERATION)
+    {
+      VescUartSetCurrent(actor_comms.motor_amps[FRONT_LEFT], FRONT_LEFT);
+      VescUartSetCurrent(actor_comms.motor_amps[FRONT_RIGHT], FRONT_RIGHT);
+    }
+    else if (actor_comms.mot_cur_type == MotorTarget::REG_BRAKE)
+    {
+      VescUartSetCurrentBrake(fabsf(actor_comms.motor_amps[FRONT_LEFT]), FRONT_LEFT);
+      VescUartSetCurrentBrake(fabsf(actor_comms.motor_amps[FRONT_RIGHT]), FRONT_RIGHT);
+    }
+    else if (actor_comms.mot_cur_type == MotorTarget::HANDBRAKE)
+    {
+      VescUartSetHandbrake(fabsf(actor_comms.motor_amps[FRONT_LEFT]), FRONT_LEFT);
+      VescUartSetHandbrake(fabsf(actor_comms.motor_amps[FRONT_RIGHT]), FRONT_RIGHT);
+    }
+    else 
+    {
+      VescUartSetCurrent(0, FRONT_LEFT);
+      VescUartSetCurrent(0, FRONT_RIGHT);
+    }
+  }
+  else {
+    VescUartSetCurrent(0, FRONT_LEFT);
+    VescUartSetCurrent(0, FRONT_RIGHT);
+  }
+
+  if (actor_comms.servo_arm == MotorTarget::SERVOS_ON) 
+  {
+    steering_servo[FRONT_LEFT].write(steering_servo_offset[FRONT_LEFT] + actor_comms.servo_angles[FRONT_LEFT]);
+    steering_servo[FRONT_RIGHT].write(steering_servo_offset[FRONT_RIGHT] + actor_comms.servo_angles[FRONT_RIGHT]);
+  }
+  else 
+  {
+    //steering_servo[FRONT_LEFT].write(steering_servo_offset[FRONT_LEFT]);
+    //steering_servo[FRONT_RIGHT].write(steering_servo_offset[FRONT_RIGHT]);
+  }
+}
+
+void set_brake_light(float main_amps) 
+{
+  static int8_t brake_count = 0;
+  if (sgn(main_amps) != sgn(v_veh()) && fabsf(main_amps) > 0.2)
+    {
+      if (brake_count < 6)
+      {
+        brake_count++;
+      }
+    }
+    else
+    {
+      if (brake_count > 0)
+      {
+        brake_count--;
+      }
+    }
+
+    if (brake_count >= 6)
+    {
+      braking = true;
+    }
+    else if (brake_count && braking)
+    {
+      braking = true;
+    }
+    else
+    {
+      braking = false;
+    }
+}
+
+void setup_esc() 
+{
+  // setup UART port for vesc
+  Serial1.begin(230400);
+  Serial3.begin(230400);
+  SetSerialPort(&Serial1, &Serial3);
+  //SetDebugSerialPort(&Serial);
+}
+
+void setup_light() 
+{
+  pwm_lights.attach(PWM_LIGHT_PIN, 96, 8032);
+  update_lights(light_com);
+}
+
+void setup_servo() 
+{
+  steering_servo_offset[FRONT_LEFT] = configuration.steeringOff_FL + 90;
+  steering_servo_offset[FRONT_RIGHT] = configuration.steeringOff_FR + 90;
+
+  //steering_servo[FRONT_LEFT].attach(steering_servo_pin[FRONT_LEFT]);
+  //steering_servo[FRONT_RIGHT].attach(steering_servo_pin[FRONT_RIGHT]);
+}
+
+void createNode() 
+{
+  
+  //get EEPROM Parameters
+  readParamsFromEEPROM();
+  
+  // init LEDs
+  initLeds();
+
+  // create a node
+  systemClock = &initSystemClock();
+  canDriver = &initCanDriver();
+  node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
+  initNode(node, nodeID, nodeName, swVersion, hwVersion);
+
+  // init publisher
+  initPublisher(node);
+
+  // init subscriber
+  initSubscriber(node);
+
+  // set up filters
+  configureCanAcceptanceFilters(*node);
+
+  // init parameter
+  initParameter(node);
+
+  // start up node
+  node->setModeOperational();
+
 }

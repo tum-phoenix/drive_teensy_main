@@ -390,6 +390,7 @@ typedef enum {
 	COMM_SET_CURRENT_BRAKE,
 	COMM_SET_RPM,
 	COMM_SET_POS,
+	COMM_SET_HANDBRAKE,
 	COMM_SET_DETECT,
 	COMM_SET_SERVO_POS,
 	COMM_SET_MCCONF,
@@ -416,7 +417,10 @@ typedef enum {
 	COMM_FORWARD_CAN,
 	COMM_SET_CHUCK_DATA,
 	COMM_CUSTOM_APP_DATA,
-	COMM_NON
+	COMM_NRF_START_PAIRING,
+	COMM_GET_VALUES_SHORT,      		// this message is custom made for pheonix robotics
+	COMM_SET_CUSTOM_MC_CONF_VALUES,     // this message is custom made for pheonix robotics
+    COMM_GET_CUSTOM_MC_CONF_VALUES      // this message is custom made for pheonix robotics
 } COMM_PACKET_ID;
 
 // CAN commands
@@ -532,7 +536,11 @@ struct bldcMeasure {
 	float avgId;
 	float avgIq;
 	float dutyNow;
-	long rpm;
+	long  erpm;
+	float min_current;
+    float max_current;
+    float min_erpm;
+    float max_erpm;
 	float inpVoltage;
 	float ampHours;
 	float ampHoursCharged;

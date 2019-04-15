@@ -18,19 +18,28 @@ static constexpr uint8_t hwVersion = 1;
 static const char *nodeName = "org.phoenix.dji";
 
 // application settings
-static constexpr float framerate = 1000;
+static constexpr float framerate = 500;
 
 // common
-uint8_t bat_alm = 0;
+
+// node state
+const int node_state_update_rate_us = 1000000 / 20;     // in us -> 20Hz
+MonotonicTime next_node_state_update = MonotonicTime::fromMSec(0);
+uint8_t node_fault_code1 = 0;
+uint8_t node_fault_code2 = 0;
 
 // DJI
-int rc_update_rate = 50;
-MonotonicTime last_rc_update = MonotonicTime::fromMSec(0);
+//#define DJI_DEBUG_OUTPUT
+const int rc_update_rate_us = 1000000 / 50;             // in us -> 20Hz
+const int rc_timeout_us = 1000 * 100;                   // timeout if last rc command is 100ms old
+MonotonicTime next_rc_update = MonotonicTime::fromMSec(0);
+MonotonicTime last_rc_receive = MonotonicTime::fromMSec(0);
 DJI dji(Serial2);
 
 // Power
-int power_update_rate = 5;
-MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
+#define IGNORE_CELL4          // use this to run teensy without connected CAN-cable (it is used for V4 measurement)
+const int power_update_rate_us = 1000000 / 2;         // in us -> 2Hz
+MonotonicTime next_power_update = MonotonicTime::fromMSec(0);
 #define CELL3_PIN A5
 #define CELL2_PIN A11
 #define CELL1_PIN A10
@@ -46,23 +55,45 @@ MonotonicTime last_power_update = MonotonicTime::fromMSec(0);
 
 // buzzer
 #define BUZZER_PIN 11
-uint8_t buf_state = 0;
-int buzzer_beep_rate = 2;
-MonotonicTime last_buzzer_update = MonotonicTime::fromMSec(0);
+const int buzzer_beep_rate_us = 1000000 / 2;              // in us -> 2Hz
+MonotonicTime next_buzzer_update = MonotonicTime::fromUSec(0);
+uint8_t battery_alarm = 0;
 
 // Buttons
-int button_update_rate = 10;
-MonotonicTime last_button_update = MonotonicTime::fromMSec(0);
+//#define BUTTONS_DEBUG_OUTPUT
+const int button_update_rate_us = 1000000 / 10;           // in us -> 10Hz
+MonotonicTime next_button_update = MonotonicTime::fromUSec(0);
 #define BUTTON_PIN A4
 uint8_t bitwise_buttons = 0;
 
 // Vesc
-int motor_state_update_rate = 100;
-MonotonicTime last_motor_state_update = MonotonicTime::fromMSec(0);
-struct bldcMeasure measuredVal_motor3;
-struct bldcMeasure measuredVal_motor4;
-float max_fet_temperature = 80;
-float vveh = 0;
+//#define VESC_DEBUG_OUTPUT
+
+#define MOT_POL_NUM 14
+#define MOTOR_Y_WIND_FACTOR 1.7
+
+const int motor_state_update_rate_us = 1000000 / 100;    // in us  -> 100Hz
+MonotonicTime next_motor_state_request_time = MonotonicTime::fromUSec(0);
+MonotonicTime next_motor_state_update_time = MonotonicTime::fromUSec(0);
+int motor_state_reply_duration_us = 3500;   // time between request and receive of a motor_state
+int vesc_motor_state_requests[2] = {0, 0};
+int vesc_motor_state_receives[2] = {0, 0};
+int vesc_motor_state_received[2] = {0, 0};
+int vesc_motor_state_alive[2] = {0, 0};     // is larger 0 if VESC is alive
+struct bldcMeasure measuredVal_motor3;      // rear left
+struct bldcMeasure measuredVal_motor4;      // rear right
+
+bool custom_vesc_config_set = 0;
+typedef struct {
+    float min_current = -20.0;
+    float max_current = 20.0;
+    float min_erpm = -20000;
+    float max_erpm = 20000;
+} mcconf_t;
+mcconf_t mcconf;
+
+int vesc_com_start_delay_ms = 5000;
+
 
 // servos for steering
 PWM_T32 steering_servo_3;
@@ -79,12 +110,12 @@ uint32_t last_motor_target_receive = 0;
 #define MOTOR_COM_TIMEOUT 500 // max accepted time between motor commands in ms
 
 // Pepperl+Fuchs / parallel parking
+const int par_lot_update_rate_us = 1000000 / 50;     // in us  -> 50Hz
+MonotonicTime next_par_lot_update = MonotonicTime::fromMSec(0);
 #define PF_LS_PIN 13
-int32_t lot_size = 0;
-int32_t last_lot_pos = 0;
-uint8_t publish_lot_msg = 0;
-int par_lot_update_rate = 50;
-MonotonicTime last_par_lot_update = MonotonicTime::fromMSec(0);
+float lot_size = 0;
+float last_lot_pos = 0;
+uint8_t publish_lot_msg_to_send = 0;
 
 // odometry
 typedef struct
@@ -94,7 +125,12 @@ typedef struct
 } odometry_t;
 odometry_t rear;
 
-void v_veh();
+#define WHEEL_RADIUS_M 0.033
+
+float v_veh();
+
+float x_veh();
+
 void buzzer_routine();
 uint8_t check_arm_state();
 
@@ -111,39 +147,42 @@ void setup()
   Serial3.begin(230400);
   SetSerialPort(&Serial1, &Serial3);
 
-  Serial.begin(115200);
+    // setup UART port for vesc
+    Serial1.begin(230400);
+    Serial3.begin(230400);
+    SetSerialPort(&Serial1, &Serial3);
 
-  // setup power
-  analogReadRes(12);
-  analogReadAveraging(4);
+    // setup UART for usb port as debug output
+    Serial.begin(115200);
 
   // Pepperl+Fuchs
   //RISING/HIGH/CHANGE/LOW/FALLING
   attachInterrupt(PF_LS_PIN, pf_ir_routine, CHANGE);
 
-  // init LEDs
-  initLeds();
+    // Pepperl+Fuchs
+    //RISING/HIGH/CHANGE/LOW/FALLING
+    attachInterrupt(PF_LS_PIN, pf_ir_routine, CHANGE);
 
-  // create a node
-  systemClock = &initSystemClock();
-  canDriver = &initCanDriver();
-  node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
-  initNode(node, nodeID, nodeName, swVersion, hwVersion);
+    // init LEDs
+    initLeds();
 
-  // init publisher
-  initPublisher(node);
+    // create CAN node
+    systemClock = &initSystemClock();
+    canDriver = &initCanDriver();
+    node = new Node<NodeMemoryPoolSize>(*canDriver, *systemClock);
+    initNode(node, nodeID, nodeName, swVersion, hwVersion);
 
-  // init subscriber
-  initSubscriber(node);
+    // init publisher
+    initPublisher(node);
 
-  // set up filters
-  configureCanAcceptanceFilters(*node);
+    // init subscriber
+    initSubscriber(node);
 
-  // init parameter
-  initParameter(node);
+    // set up filters
+    configureCanAcceptanceFilters(*node);
 
-  // start up node
-  node->setModeOperational();
+    // init parameter
+    initParameter(node);
 
   // setup DJI remote
   dji.begin();

@@ -6,6 +6,8 @@
 #include "datatypes.h"
 #include "buffer.h"
 
+//#define VESC_UART_debug_output
+
 // SetSerialPort sets the serial to communicate with the VESC
 // Multiple ports possible
 void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2, HardwareSerial* _serialPort3, HardwareSerial* _serialPort4);
@@ -26,25 +28,25 @@ void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2, H
 	
 }
 
-void SetSerialPort(HardwareSerial* _serialPort1) {
-	SetSerialPort(_serialPort1, _serialPort1, _serialPort1, _serialPort1);
+void SetSerialPort(HardwareSerial *_serialPort1) {
+    SetSerialPort(_serialPort1, _serialPort1, _serialPort1, _serialPort1);
 }
 
-void SetSerialPort(HardwareSerial* _serialPort1, HardwareSerial* _serialPort2) {
-	SetSerialPort(_serialPort1, _serialPort2, _serialPort1, _serialPort1);
+void SetSerialPort(HardwareSerial *_serialPort1, HardwareSerial *_serialPort2) {
+    SetSerialPort(_serialPort1, _serialPort2, _serialPort1, _serialPort1);
 }
 
-void SetSerialPort(HardwareSerial* _serialPort1,HardwareSerial* _serialPort2,HardwareSerial* _serialPort3) {
-	SetSerialPort(_serialPort1, _serialPort2, _serialPort3, _serialPort1);
+void SetSerialPort(HardwareSerial *_serialPort1, HardwareSerial *_serialPort2, HardwareSerial *_serialPort3) {
+    SetSerialPort(_serialPort1, _serialPort2, _serialPort3, _serialPort1);
 }
 
 #include "ringbuffer.h"
 
 enum possible_msg_states {
-  OUT,
-  START,
-  TYPE,
-  SIZE,
+    OUT,
+    START,
+    TYPE,
+    SIZE,
 };
 
 uint8_t msg_state[3] = {OUT, OUT, OUT};
@@ -102,12 +104,22 @@ int PackSendPayload(uint8_t* payload, int lenPay, int num) {
 }
 
 void vesc_send_status_request(uint8_t serial_port) {
-	uint8_t command[1] = { COMM_GET_VALUES };
-	PackSendPayload(command, 1, serial_port);
+    uint8_t command[1] = {COMM_GET_VALUES_SHORT};
+    PackSendPayload(command, 1, serial_port);
+}
+
+void vesc_send_status_request_long(uint8_t serial_port) {
+    uint8_t command[1] = {COMM_GET_VALUES};
+    PackSendPayload(command, 1, serial_port);
+}
+
+void vesc_send_custom_config_request(uint8_t serial_port) {
+    uint8_t command[1] = {COMM_GET_CUSTOM_MC_CONF_VALUES};
+    PackSendPayload(command, 1, serial_port);
 }
 
 void make_serial_available(uint8_t serial_port) {
-	shift_rx_stream_to_buffer(serial_port);			// read from serial port into ringbuffer.
+    shift_rx_stream_to_buffer(serial_port); // read from serial port into ringbuffer.
 }
 
 uint8_t find_status_message(uint8_t serial_port) 
@@ -354,48 +366,70 @@ uint8_t VescUartGetValue(bldcMeasure& values, uint8_t serial_port) {
 }
 
 void VescUartSetCurrent(float current, int num) {
-	int32_t index = 0;
-	uint8_t payload[5];
+    int32_t index = 0;
+    uint8_t payload[5];
 
-	payload[index++] = COMM_SET_CURRENT ;
-	buffer_append_int32(payload, (int32_t)(current * 1000), &index);
-	PackSendPayload(payload, 5, num);
+    payload[index++] = COMM_SET_CURRENT;
+    buffer_append_int32(payload, (int32_t) (current * 1000), &index);
+    PackSendPayload(payload, 5, num);
+}
+
+
+void Vesc_send_custom_config(float current_acc, float current_brk, float erpm_min, float erpm_max, int num) {
+    int32_t index = 0;
+    uint8_t payload[17];
+
+    payload[index++] = COMM_SET_CUSTOM_MC_CONF_VALUES;
+    buffer_append_float32_auto(payload, current_brk, &index);
+    buffer_append_float32_auto(payload, current_acc, &index);
+    buffer_append_float32_auto(payload, erpm_min, &index);
+    buffer_append_float32_auto(payload, erpm_max, &index);
+    PackSendPayload(payload, 17, num);
 }
 
 void VescUartSetCurrentBrake(float brakeCurrent, int num) {
-	int32_t index = 0;
-	uint8_t payload[5];
+    int32_t index = 0;
+    uint8_t payload[5];
 
-	payload[index++] = COMM_SET_CURRENT_BRAKE;
-	buffer_append_int32(payload, (int32_t)(brakeCurrent * 1000), &index);
-	PackSendPayload(payload, 5, num);
+    payload[index++] = COMM_SET_CURRENT_BRAKE;
+    buffer_append_int32(payload, (int32_t) (brakeCurrent * 1000), &index);
+    PackSendPayload(payload, 5, num);
 }
 
-void VescUartSetRPM(float rpm, int num) {
-	int32_t index = 0;
-	uint8_t payload[5];
+void VescUartSetERPM(float erpm, int num) {
+    int32_t index = 0;
+    uint8_t payload[5];
 
-	payload[index++] = COMM_SET_RPM ;
-	buffer_append_int32(payload, (int32_t)(rpm), &index);
-	PackSendPayload(payload, 5, num);
+    payload[index++] = COMM_SET_RPM;
+    buffer_append_int32(payload, (int32_t) (erpm), &index);
+    PackSendPayload(payload, 5, num);
 }
 
 void VescUartSetDuty(float duty, int num) {
-	int32_t index = 0;
-	uint8_t payload[5];
+    int32_t index = 0;
+    uint8_t payload[5];
 
-	payload[index++] = COMM_SET_DUTY ;
-	buffer_append_int32(payload, (int32_t)(duty * 100000), &index);
-	PackSendPayload(payload, 5, num);
+    payload[index++] = COMM_SET_DUTY;
+    buffer_append_int32(payload, (int32_t) (duty * 100000), &index);
+    PackSendPayload(payload, 5, num);
 }
 
 void VescUartSetPosition(float position, int num) {
-	int32_t index = 0;
-	uint8_t payload[5];
+    int32_t index = 0;
+    uint8_t payload[5];
 
-	payload[index++] = COMM_SET_POS ;
-	buffer_append_int32(payload, (int32_t)(position * 1000000.0), &index);
-	PackSendPayload(payload, 5, num);
+    payload[index++] = COMM_SET_POS;
+    buffer_append_int32(payload, (int32_t) (position * 1000000.0), &index);
+    PackSendPayload(payload, 5, num);
+}
+
+void VescUartSetHandbrake(float handbrake, int num) {
+    int32_t index = 0;
+    uint8_t payload[5];
+
+    payload[index++] = COMM_SET_HANDBRAKE;
+    buffer_append_int32(payload, (int32_t) (handbrake * 1000), &index);
+    PackSendPayload(payload, 5, num);
 }
 
 #endif // VESCLIB_H_

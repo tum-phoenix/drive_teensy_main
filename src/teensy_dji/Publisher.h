@@ -4,9 +4,11 @@
 #include <uavcan/uavcan.hpp>
 #include "phoenix_msgs/RemoteControl.hpp"
 #include "phoenix_msgs/MotorState.hpp"
-#include "phoenix_msgs/PowerState.hpp"
+#include "phoenix_msgs/NodeState.hpp"
+#include "phoenix_msgs/Battery.hpp"
 #include "phoenix_msgs/ParallelParking.hpp"
 #include "phoenix_msgs/UserButtons.hpp"
+#include "phoenix_msgs/ConfigReceived.hpp"
 #include "phoenix_can_shield.h"
 #include "vuart.h"
 #include <Filters.h>
@@ -16,6 +18,7 @@ using namespace phoenix_msgs;
 
 // publishing tasks:
 // we want to publish the rc readings from dji via a RemoteControl Messages
+// we want to publish the battery cell voltages from via a Battery Messages
 // we want to publish the state of the two motors via two MotorState Messages
 
 // filters out changes faster that 5 Hz.
@@ -28,9 +31,11 @@ FilterOnePole lowpassFilterRear(LOWPASS, filterFrequency);
 // publisher
 Publisher<RemoteControl> *rc_Publisher;
 Publisher<MotorState> *motor_state_Publisher;
-Publisher<PowerState> *power_Publisher;
+Publisher<NodeState> *state_Publisher;
+Publisher<Battery> *battery_Publisher;
 Publisher<ParallelParking> *ppark_Publisher;
 Publisher<UserButtons> *user_buttons_Publisher;
+Publisher<ConfigReceived> *conf_rec_Publisher;
 
 // additional configuration
 static uint8_t motor3_position = MotorState::POS_REAR_LEFT;

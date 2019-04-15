@@ -5,8 +5,9 @@
 #include "phoenix_msgs/ImuData.hpp"
 #include "phoenix_msgs/MotorState.hpp"
 #include "phoenix_msgs/MotorTarget.hpp"
-#include "phoenix_msgs/PowerState.hpp"
+#include "phoenix_msgs/NodeState.hpp"
 #include "phoenix_msgs/DriveState.hpp"
+#include "phoenix_msgs/MotorConfig.hpp"
 #include "phoenix_can_shield.h"
 #include <Adafruit_BNO055.h>
 #include <Adafruit_Sensor.h>
@@ -27,23 +28,25 @@ typedef struct
 Publisher<ImuData> *imuPublisher;
 Publisher<MotorState> *motorStatePublisher;
 Publisher<MotorTarget> *motorTargetPublisher;
-Publisher<PowerState> *power_Publisher;
+Publisher<NodeState> *status_Publisher;
 Publisher<DriveState> *drive_Publisher;
+Publisher<MotorConfig> *mcconf_Publisher;
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
   // create publishers
-  power_Publisher = new Publisher<PowerState>(*node);
+  status_Publisher = new Publisher<NodeState>(*node);
   imuPublisher = new Publisher<ImuData>(*node);
   motorStatePublisher = new Publisher<MotorState>(*node);
   motorTargetPublisher = new Publisher<MotorTarget>(*node);
   drive_Publisher = new Publisher<DriveState>(*node);
+  mcconf_Publisher = new Publisher<MotorConfig>(*node);
 
   // initiliaze publishers
   if (power_Publisher->init() < 0)
   {
-    Serial.println("Unable to initialize power_Publisher!");
+    Serial.println("Unable to initialize status_Publisher!");
   }
 
   if (imuPublisher->init() < 0)
@@ -70,6 +73,8 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   motorStatePublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   motorTargetPublisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   drive_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  status_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  mcconf_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 
 // cycle BNO publisher
@@ -145,15 +150,15 @@ void cyclePublisher_Actor_Comms(actor_comm_t data)
   }
 }
 
-// cycle power publisher
-void cyclePublisher_Power()
+// cycle status publisher
+void cyclePublisher_Status()
 {
   // Power
   if (last_power_update +
           MonotonicDuration::fromMSec(1000 / (float)power_update_rate) <
       systemClock->getMonotonic())
   {
-    last_power_update = systemClock->getMonotonic();
+    last_status_update = systemClock->getMonotonic();
     float V4_raw = analogRead(CELL4_PIN);
     float curr_raw = analogRead(CURR_PIN);
     float V4 = V4_raw * Cell4_FACTOR;
@@ -192,6 +197,23 @@ void cyclePublisher_Drive_State(float v, float s_f, float s_r)
   }
   else
   {
+    digitalWrite(trafficLedPin, HIGH);
+  }
+}
+
+void Publisher_Motor_Config() {
+
+  float max_erpm = max(configuration.maxSpeedAuton,configuration.maxSpeedRC) / (2. * M_PI * WHEEL_RADIUS_M) * 60. * (float)(MOT_POL_NUM / 2);
+
+  MotorConfig msg;
+  msg.max_motor_current       = configuration.maxMotorAmps;
+  msg.max_motor_current_brake = - configuration.maxMotorAmps;
+  msg.max_erpm                = max_erpm * 1.5;
+  
+  if (mcconf_Publisher->broadcast(msg) < 0)
+  {
+    Serial.println("Error while broadcasting vesc motor config comand");
+  } else {
     digitalWrite(trafficLedPin, HIGH);
   }
 }

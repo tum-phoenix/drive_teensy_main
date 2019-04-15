@@ -2,7 +2,7 @@
 #define PUBLISHER_H
 
 #include <uavcan/uavcan.hpp>
-#include "phoenix_msgs/PowerState.hpp"
+#include "phoenix_msgs/NodeState.hpp"
 #include "phoenix_msgs/PowerBoard.hpp"
 #include "phoenix_can_shield.h"
 
@@ -14,20 +14,20 @@ using namespace phoenix_msgs;
 // we want to publish the state of the two motors via two MotorState Messages
 
 // publisher
-Publisher<PowerState> *power_Publisher;
+Publisher<NodeState> *status_Publisher;
 Publisher<PowerBoard> *powerboard_Publisher;
 
 // initialize all publisher
 void initPublisher(Node<NodeMemoryPoolSize> *node)
 {
   // create publishers
-  power_Publisher = new Publisher<PowerState>(*node);
+  status_Publisher = new Publisher<NodeState>(*node);
   powerboard_Publisher = new Publisher<PowerBoard>(*node);
 
   // initiliaze publishers
   if (power_Publisher->init() < 0)
   {
-    Serial.println("Unable to initialize power_Publisher!");
+    Serial.println("Unable to initialize status_Publisher!");
   }
   if (powerboard_Publisher->init() < 0)
   {
@@ -35,7 +35,7 @@ void initPublisher(Node<NodeMemoryPoolSize> *node)
   }
 
   // set TX timeout
-  power_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
+  status_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
   powerboard_Publisher->setTxTimeout(MonotonicDuration::fromUSec(500));
 }
 

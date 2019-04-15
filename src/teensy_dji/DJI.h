@@ -4,8 +4,7 @@
 #include "Arduino.h"
 #include "SBUS.h"
 
-class DJI
-{
+class DJI {
 
 public:
   enum switchState
@@ -128,8 +127,6 @@ public:
       return DOWN;
       break;
     }
-    return UNKNOWN;
-  }
 
 private:
   SBUS sbus;               // SBUS interface

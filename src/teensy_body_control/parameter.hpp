@@ -84,13 +84,22 @@ class : public uavcan::IParamManager
     void assignParamValue(const Name &name, const Value &value) override
     {
 
-        if (name == "maxSpeed[m/s]")
+        if (name == "maxSpeedRC[m/s]")
         {
             if (value.is(uavcan::protocol::param::Value::Tag::real_value))
             {
-                configuration.maxSpeed = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
-                Serial.print("Changed maxSpeed[m/s] to: ");
-                Serial.println(configuration.maxSpeed);
+                configuration.maxSpeedRC = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed maxSpeedRC[m/s] to: ");
+                Serial.println(configuration.maxSpeedRC);
+            }
+        }
+        if (name == "maxSpeedAuton[m/s]")
+        {
+            if (value.is(uavcan::protocol::param::Value::Tag::real_value))
+            {
+                configuration.maxSpeedAuton = *value.as<uavcan::protocol::param::Value::Tag::real_value>();
+                Serial.print("Changed maxSpeedAuton[m/s] to: ");
+                Serial.println(configuration.maxSpeedAuton);
             }
         }
         else if (name == "maxMotorCurrent[A]")
@@ -173,9 +182,13 @@ class : public uavcan::IParamManager
 
     void readParamValue(const Name &name, Value &out_value) const override
     {
-        if (name == "maxSpeed[m/s]")
+        if (name == "maxSpeedRC[m/s]")
         {
-            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxSpeed;
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxSpeedRC;
+        }
+        else if (name == "maxSpeedAuton[m/s]")
+        {
+            out_value.to<uavcan::protocol::param::Value::Tag::real_value>() = configuration.maxSpeedAuton;
         }
         else if (name == "maxMotorCurrent[A]")
         {
@@ -238,9 +251,15 @@ class : public uavcan::IParamManager
 
         if (name == "maxSpeed[m/s]")
         {
-            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxSpeed;
-            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 15;
-            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 1;
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxSpeedRC;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 10;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = .1;
+        }
+        if (name == "maxSpeedAuton[m/s]")
+        {
+            out_def.to<uavcan::protocol::param::Value::Tag::real_value>() = Params().maxSpeedAuton;
+            out_max.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = 10;
+            out_min.to<uavcan::protocol::param::NumericValue::Tag::real_value>() = .1;
         }
         else if (name == "maxMotorCurrent[A]")
         {

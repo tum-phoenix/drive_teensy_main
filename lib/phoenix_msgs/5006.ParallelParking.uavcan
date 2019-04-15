@@ -1,2 +1,2 @@
-uint16 lot_size
-uint16 dist_to_lot
+float16 lot_size
+float16 dist_to_lot
